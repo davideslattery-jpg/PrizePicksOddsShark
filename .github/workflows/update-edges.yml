@@ -2,9 +2,9 @@ name: Update edges board
 
 on:
   schedule:
-    # ~hourly during typical US sports hours (UTC): afternoon through late night ET
-    - cron: "20 15-23 * * *"
-    - cron: "20 0-5 * * *"
+    # Every 30 minutes during typical US sports hours (UTC): afternoon through late night ET
+    - cron: "0,30 15-23 * * *"
+    - cron: "0,30 0-5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,10 +36,13 @@ jobs:
           set -euo pipefail
           mkdir -p docs/data
           OUT="docs/data/edges.json"
+          SPORTS="all"
+          # Cap per-sport event fetches to control quota (multi-sport burns credits fast)
+          MAX_EVENTS=6
           if [ -n "${ODDS_API_KEY:-}" ]; then
-            echo "ODDS_API_KEY present — live NBA export"
+            echo "ODDS_API_KEY present — live multi-sport export (--sport ${SPORTS})"
             # Prefer live; fall back to demo if live fails (quota / coverage)
-            if pp-odds --sport basketball_nba --min-edge 2 --max-events 6 --export "$OUT"; then
+            if pp-odds --sport "$SPORTS" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
               echo "Live export OK"
             else
               echo "Live export failed — falling back to --demo"
@@ -51,11 +54,17 @@ jobs:
           fi
           python - <<'PY'
           import json
+          from collections import Counter
           from pathlib import Path
           p = Path("docs/data/edges.json")
           data = json.loads(p.read_text(encoding="utf-8"))
           assert "edges" in data and "updated_at" in data
-          print(f"board mode={data.get('mode')} count={data.get('count')} updated_at={data.get('updated_at')}")
+          counts = Counter(e.get("sport") or "?" for e in data.get("edges") or [])
+          print(
+              f"board mode={data.get('mode')} count={data.get('count')} "
+              f"sports={data.get('sports')} per_sport={dict(counts)} "
+              f"updated_at={data.get('updated_at')}"
+          )
           PY
 
       - name: Commit board if changed

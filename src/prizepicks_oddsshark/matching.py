@@ -9,6 +9,19 @@ from typing import Any, Iterable, Literal
 
 Tier = Literal["standard", "goblin", "demon"]
 
+# Sports supported by the CLI / board (core + optional college).
+SUPPORTED_SPORTS: tuple[str, ...] = (
+    "basketball_nba",
+    "americanfootball_nfl",
+    "baseball_mlb",
+    "icehockey_nhl",
+    "americanfootball_ncaaf",
+    "basketball_ncaab",
+)
+
+# "all" expands to this set (college included; empty seasons skip gracefully).
+ALL_SPORTS: tuple[str, ...] = SUPPORTED_SPORTS
+
 # Common market aliases → canonical Odds API keys (base, without _alternate)
 MARKET_ALIASES: dict[str, str] = {
     "player_points": "player_points",
@@ -41,10 +54,29 @@ MARKET_ALIASES: dict[str, str] = {
     "player_pass_attempts": "player_pass_attempts",
     "player_pass_interceptions": "player_pass_interceptions",
     "player_rush_yds": "player_rush_yds",
+    "player_rush_tds": "player_rush_tds",
     "player_rush_attempts": "player_rush_attempts",
     "player_reception_yds": "player_reception_yds",
+    "player_reception_tds": "player_reception_tds",
     "player_receptions": "player_receptions",
     "player_anytime_td": "player_anytime_td",
+    # MLB
+    "batter_hits": "batter_hits",
+    "hits": "batter_hits",
+    "batter_total_bases": "batter_total_bases",
+    "total_bases": "batter_total_bases",
+    "pitcher_strikeouts": "pitcher_strikeouts",
+    "strikeouts": "pitcher_strikeouts",
+    "batter_home_runs": "batter_home_runs",
+    "batter_rbis": "batter_rbis",
+    "batter_runs_scored": "batter_runs_scored",
+    "batter_hits_runs_rbis": "batter_hits_runs_rbis",
+    # NHL
+    "player_goals": "player_goals",
+    "goals": "player_goals",
+    "player_shots_on_goal": "player_shots_on_goal",
+    "shots": "player_shots_on_goal",
+    "player_power_play_points": "player_power_play_points",
 }
 
 DEFAULT_MARKETS_NBA = [
@@ -59,15 +91,83 @@ DEFAULT_MARKETS_NFL = [
     "player_pass_yds",
     "player_pass_tds",
     "player_rush_yds",
+    "player_rush_tds",
     "player_reception_yds",
     "player_receptions",
 ]
 
+DEFAULT_MARKETS_MLB = [
+    "batter_hits",
+    "batter_total_bases",
+    "pitcher_strikeouts",
+    "batter_home_runs",
+    "batter_hits_runs_rbis",
+]
+
+DEFAULT_MARKETS_NHL = [
+    "player_goals",
+    "player_shots_on_goal",
+    "player_points",
+    "player_assists",
+]
+
+DEFAULT_MARKETS_NCAAB = [
+    "player_points",
+    "player_rebounds",
+    "player_assists",
+    "player_threes",
+]
+
+DEFAULT_MARKETS_NCAAF = [
+    "player_pass_yds",
+    "player_pass_tds",
+    "player_rush_yds",
+    "player_reception_yds",
+    "player_receptions",
+]
+
+_SPORT_MARKETS: dict[str, list[str]] = {
+    "basketball_nba": DEFAULT_MARKETS_NBA,
+    "americanfootball_nfl": DEFAULT_MARKETS_NFL,
+    "baseball_mlb": DEFAULT_MARKETS_MLB,
+    "icehockey_nhl": DEFAULT_MARKETS_NHL,
+    "basketball_ncaab": DEFAULT_MARKETS_NCAAB,
+    "americanfootball_ncaaf": DEFAULT_MARKETS_NCAAF,
+}
+
 
 def default_markets_for_sport(sport: str) -> list[str]:
-    if sport == "americanfootball_nfl":
-        return list(DEFAULT_MARKETS_NFL)
-    return list(DEFAULT_MARKETS_NBA)
+    """Return sensible Odds API market keys for a sport (copy)."""
+    return list(_SPORT_MARKETS.get(sport, DEFAULT_MARKETS_NBA))
+
+
+def parse_sport_arg(sport: str) -> list[str]:
+    """Parse --sport value: single key, comma list, or 'all'.
+
+    Raises ValueError for unknown keys.
+    """
+    raw = (sport or "").strip()
+    if not raw:
+        raise ValueError("sport is empty")
+    if raw.lower() == "all":
+        return list(ALL_SPORTS)
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("sport is empty")
+    unknown = [p for p in parts if p not in SUPPORTED_SPORTS]
+    if unknown:
+        raise ValueError(
+            f"Unsupported sport(s): {', '.join(unknown)}. "
+            f"Use: {', '.join(SUPPORTED_SPORTS)}, or 'all'"
+        )
+    # de-dupe preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def normalize_name(name: str) -> str:
@@ -159,7 +259,6 @@ def extract_props_from_event(
             if allowed_markets is not None and base not in allowed_markets:
                 continue
             for outcome in market.get("outcomes") or []:
-                player = str(outcome.get("description") or outcome.get("name") or "")
                 side = str(outcome.get("name") or "")
                 # Player props: name is Over/Under, description is player
                 if side not in ("Over", "Under"):

@@ -13,6 +13,7 @@ CLI that compares **PrizePicks** player props to a sportsbook (**FanDuel** by de
 - Rank by edge % with `--min-edge` (default **2%**)
 - Disk cache (TTL ~8 minutes) to save API credits
 - `--demo` mode with JSON fixtures (no API key)
+- Multi-sport board: NBA, NFL, MLB, NHL (+ NCAAF/NCAAB when available)
 - Optional `--export` to CSV or board JSON (GitHub Pages under `docs/`)
 
 ## Setup
@@ -39,16 +40,24 @@ uv pip install -e ".[dev]"
 
 ### Credit / quota warning
 
-Event prop calls cost **credits per market × region**. This CLI requests FanDuel (or Pinnacle) **plus** PrizePicks and includes `*_alternate` markets for demons/goblins. Use `--max-events` to limit spend, rely on the disk cache (5–10 min TTL), and watch response headers `x-requests-remaining` / `x-requests-used` printed after live runs. Empty responses generally do not consume quota.
+Event prop calls cost **credits per market × region**. This CLI requests FanDuel (or Pinnacle) **plus** PrizePicks and includes `*_alternate` markets for demons/goblins. Use `--max-events` to limit spend **per sport**, rely on the disk cache (5–10 min TTL), and watch response headers `x-requests-remaining` / `x-requests-used` printed after live runs. Empty responses generally do not consume quota.
+
+**Multi-sport quota:** `--sport all` (or a long comma list) multiplies cost roughly by the number of sports with live events. The GitHub Action uses `--sport all` with `--max-events 6` every **30 minutes** during US sports hours — expect higher daily credit use than the old NBA-only hourly job. Sports with no events or API errors are skipped with a warning (board still publishes).
 
 ## Usage
 
 ```bash
-# Offline demo (no key)
+# Offline demo (no key) — NBA fixtures only
 pp-odds --demo
 
 # Live NBA vs FanDuel, default markets, min edge 2%
 pp-odds --sport basketball_nba
+
+# All supported sports (NBA/NFL/MLB/NHL + college) → one merged board
+pp-odds --sport all --max-events 6 --export docs/data/edges.json
+
+# Subset: NBA + NFL + MLB
+pp-odds --sport basketball_nba,americanfootball_nfl,baseball_mlb
 
 # NFL, custom markets, Pinnacle as fair book
 pp-odds --sport americanfootball_nfl --book pinnacle \
@@ -65,13 +74,13 @@ Also: `python -m prizepicks_oddsshark --demo`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--sport` | `basketball_nba` | `basketball_nba` or `americanfootball_nfl` |
+| `--sport` | `basketball_nba` | Single key, comma list, or `all` (NBA/NFL/MLB/NHL/NCAAF/NCAAB) |
 | `--markets` | sport defaults | Comma-separated Odds API market keys |
 | `--min-edge` | `2` | Minimum edge in **percentage points** |
 | `--book` | `fanduel` | `fanduel` or `pinnacle` |
 | `--export` | — | Path ending in `.csv` or `.json` |
 | `--demo` | off | Use bundled fixtures |
-| `--max-events` | `6` | Cap live event fetches |
+| `--max-events` | `6` | Cap live event fetches **per sport** |
 | `--version` | — | Print version |
 
 ## Ranking explanation
@@ -132,7 +141,7 @@ All tests run **offline** (no API key).
 ## Limitations / next steps
 
 - Matching is name-normalized string equality; nicknames / injuries / DNP are not handled.
-- Only NBA & NFL sport keys are wired in the CLI; markets list is a practical subset.
+- Sport keys: NBA, NFL, MLB, NHL, NCAAF, NCAAB (college skipped gracefully when empty). Markets are a practical subset per sport.
 - Demon/goblin detection follows Odds API conventions (`+100` → demon on alternate markets).
 - No portfolio / correlation / entry sizing; single-leg edge only.
 - Live availability depends on The Odds API coverage for `us_dfs` / PrizePicks.
@@ -144,7 +153,7 @@ Bookmarkable ranked edges board (vanilla HTML/JS under `docs/`):
 
 **https://davideslattery-jpg.github.io/PrizePicksOddsShark/**
 
-The page loads `docs/data/edges.json`, auto-reloads every ~3 minutes, and has a Refresh button. Sport filter + min-edge controls are client-side.
+The page loads `docs/data/edges.json` (cache-busted), auto-reloads every ~3 minutes, and has a Refresh button. Sport filter lists sports present in the data; freshness shows relative + absolute time, with a yellow stale banner if `updated_at` is older than ~2 hours.
 
 ### One-time setup
 
@@ -158,13 +167,14 @@ The page loads `docs/data/edges.json`, auto-reloads every ~3 minutes, and has a 
    **Actions** → **Update edges board** → **Run workflow** → **Run workflow**.  
    Uses live export when `ODDS_API_KEY` is set; otherwise `--demo`.
 
-Scheduled runs refresh roughly hourly during typical US sports hours. The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
+Scheduled runs refresh roughly **every 30 minutes** during typical US sports hours (multi-sport live export). The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
 
 ### Local export for the board
 
 ```bash
 pp-odds --demo --export docs/data/edges.json
-pp-odds --sport basketball_nba --export docs/data/edges.json
+pp-odds --sport all --max-events 6 --export docs/data/edges.json
+pp-odds --sport basketball_nba,americanfootball_nfl --export docs/data/edges.json
 ```
 
 JSON exports use a board envelope (`updated_at`, `mode`, `edges[]` with `game` / `sport`, etc.) for the Pages UI. CSV export remains a flat table.

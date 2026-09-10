@@ -38,6 +38,7 @@ class RankedEdge:
     commence_time: str
     matchup: str
     adjusted: bool
+    sport: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -49,6 +50,7 @@ def rank_edges(
     book: str = "fanduel",
     markets: list[str] | None = None,
     min_edge: float = 2.0,
+    sport: str | None = None,
 ) -> list[RankedEdge]:
     """Build ranked edges from event-odds payloads."""
     results: list[RankedEdge] = []
@@ -61,6 +63,7 @@ def rank_edges(
             event, bookmaker_keys=[book], market_filter=markets
         )
         book_idx = index_book_props(book_legs)
+        event_sport = sport or str(event.get("sport_key") or "")
 
         for pp in pp_legs:
             if not pp.player_norm:
@@ -120,6 +123,7 @@ def rank_edges(
                     commence_time=pp.commence_time,
                     matchup=f"{pp.away_team} @ {pp.home_team}",
                     adjusted=adjusted,
+                    sport=pp.sport_key or event_sport,
                 )
             )
 

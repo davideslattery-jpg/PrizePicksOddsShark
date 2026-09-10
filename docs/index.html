@@ -12,7 +12,7 @@
     <header class="top">
       <div>
         <h1>PrizePicksOddsShark</h1>
-        <p class="sub">Ranked PrizePicks edges vs FanDuel fair odds · personal research only</p>
+        <p class="sub">Ranked PrizePicks edges vs FanDuel fair odds · multi-sport · personal research only</p>
       </div>
       <div class="controls">
         <label class="field">
@@ -28,6 +28,12 @@
         <button type="button" id="refreshBtn" class="btn">Refresh</button>
       </div>
     </header>
+
+    <div id="staleBanner" class="stale hidden" role="status">
+      Board data looks stale (older than ~2 hours). Try
+      <strong>Actions → Update edges board → Run workflow</strong>
+      on GitHub, then Refresh.
+    </div>
 
     <section class="status" id="statusBar" aria-live="polite">
       <span id="updatedAt">Loading…</span>
@@ -63,7 +69,7 @@
     <footer class="foot">
       <p>
         Data from <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>.
-        Not affiliated with PrizePicks or FanDuel. Free API quota applies; board may be demo data.
+        Not affiliated with PrizePicks or FanDuel. Free API quota applies; multi-sport refreshes cost more credits.
         Bookmark:
         <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>
       </p>

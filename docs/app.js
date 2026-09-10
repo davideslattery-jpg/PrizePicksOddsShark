@@ -1,6 +1,7 @@
 (() => {
   const DATA_URL = "data/edges.json";
   const RELOAD_MS = 3 * 60 * 1000; // ~3 minutes
+  const STALE_MS = 2 * 60 * 60 * 1000; // ~2 hours
 
   const els = {
     body: document.getElementById("edgesBody"),
@@ -12,6 +13,7 @@
     sportFilter: document.getElementById("sportFilter"),
     minEdge: document.getElementById("minEdge"),
     refreshBtn: document.getElementById("refreshBtn"),
+    staleBanner: document.getElementById("staleBanner"),
   };
 
   let board = null;
@@ -21,6 +23,10 @@
   const SPORT_LABELS = {
     basketball_nba: "NBA",
     americanfootball_nfl: "NFL",
+    baseball_mlb: "MLB",
+    icehockey_nhl: "NHL",
+    americanfootball_ncaaf: "NCAAF",
+    basketball_ncaab: "NCAAB",
   };
 
   function fmtPct(x) {
@@ -42,7 +48,11 @@
   }
 
   function prettyMarket(m) {
-    return String(m || "").replace(/^player_/, "").replace(/_/g, " ");
+    return String(m || "")
+      .replace(/^player_/, "")
+      .replace(/^batter_/, "")
+      .replace(/^pitcher_/, "")
+      .replace(/_/g, " ");
   }
 
   function prettySport(s) {
@@ -61,6 +71,32 @@
       minute: "2-digit",
       timeZoneName: "short",
     });
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return "unknown";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const diffMs = Date.now() - d.getTime();
+    const abs = Math.abs(diffMs);
+    const sec = Math.round(abs / 1000);
+    const min = Math.round(sec / 60);
+    const hr = Math.round(min / 60);
+    const day = Math.round(hr / 24);
+    let rel;
+    if (sec < 45) rel = "just now";
+    else if (min < 60) rel = `${min} min ago`;
+    else if (hr < 48) rel = `${hr} hr ago`;
+    else rel = `${day} day${day === 1 ? "" : "s"} ago`;
+    if (diffMs < 0) rel = "in the future";
+    return rel;
+  }
+
+  function isStale(iso) {
+    if (!iso) return true;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return true;
+    return Date.now() - d.getTime() > STALE_MS;
   }
 
   function showError(msg) {
@@ -116,7 +152,13 @@
     const mode = board.mode || "unknown";
     els.modeBadge.textContent = mode;
     els.modeBadge.className = `badge ${mode === "live" ? "live" : mode === "demo" ? "demo" : ""}`;
-    els.updatedAt.textContent = `Updated ${localTime(board.updated_at)}`;
+    const abs = localTime(board.updated_at);
+    const rel = relativeTime(board.updated_at);
+    els.updatedAt.textContent = `Updated ${rel} · ${abs}`;
+    if (els.staleBanner) {
+      if (isStale(board.updated_at)) els.staleBanner.classList.remove("hidden");
+      else els.staleBanner.classList.add("hidden");
+    }
     populateSports(board.edges || []);
 
     const rows = filteredRows();
@@ -171,9 +213,7 @@
       }
       board = data;
       render();
-      if (manual) {
-        els.reloadHint = document.getElementById("reloadHint");
-      }
+      void manual;
     } catch (err) {
       showError(`Failed to load board: ${err.message || err}`);
       if (!board) {

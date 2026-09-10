@@ -32,7 +32,7 @@ BOARD_EDGE_KEYS = (
 )
 
 
-def edge_to_board_row(row: RankedEdge, *, sport: str) -> dict[str, Any]:
+def edge_to_board_row(row: RankedEdge, *, sport: str | None = None) -> dict[str, Any]:
     """Serialize a ranked edge for the web board (includes game + sport)."""
     return {
         "player": row.player,
@@ -47,7 +47,7 @@ def edge_to_board_row(row: RankedEdge, *, sport: str) -> dict[str, Any]:
         "edge_pct": row.edge_pct,
         "book": row.book,
         "game": row.matchup,
-        "sport": sport,
+        "sport": row.sport or sport or "",
         "commence_time": row.commence_time,
         "event_id": row.event_id,
         "adjusted": row.adjusted,
@@ -58,14 +58,24 @@ def edge_to_board_row(row: RankedEdge, *, sport: str) -> dict[str, Any]:
 def build_board(
     rows: Sequence[RankedEdge],
     *,
-    sport: str,
+    sport: str | None = None,
     book: str = "fanduel",
     demo: bool = False,
     sports: list[str] | None = None,
     updated_at: str | None = None,
 ) -> dict[str, Any]:
     """Build the edges.json envelope consumed by docs/index.html."""
-    sport_list = sports or [sport]
+    if sports is not None:
+        sport_list = list(sports)
+    else:
+        from_rows = []
+        seen: set[str] = set()
+        for r in rows:
+            s = r.sport or sport or ""
+            if s and s not in seen:
+                seen.add(s)
+                from_rows.append(s)
+        sport_list = from_rows or ([sport] if sport else [])
     return {
         "updated_at": updated_at
         or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -108,16 +118,17 @@ def export_rows(
     rows: Sequence[RankedEdge],
     path: str | Path,
     *,
-    sport: str = "basketball_nba",
+    sport: str | None = None,
     book: str = "fanduel",
     demo: bool = False,
+    sports: list[str] | None = None,
 ) -> Path:
     """Write ranked edges to .csv (flat) or .json (board envelope for the web UI)."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     suffix = out.suffix.lower()
     if suffix == ".json":
-        board = build_board(rows, sport=sport, book=book, demo=demo)
+        board = build_board(rows, sport=sport, book=book, demo=demo, sports=sports)
         out.write_text(json.dumps(board, indent=2) + "\n", encoding="utf-8")
     elif suffix == ".csv":
         data = [r.to_dict() for r in rows]
