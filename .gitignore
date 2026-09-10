@@ -1,0 +1,34 @@
+# Secrets / env
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.envrc
+
+# Test / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
+*.log
+
+# Project disk cache
+.odds_cache/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
