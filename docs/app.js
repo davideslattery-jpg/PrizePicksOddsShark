@@ -41,6 +41,34 @@
     return n.toFixed(2);
   }
 
+  function fmtSignedPctPoints(x) {
+    const n = Number(x);
+    if (!Number.isFinite(n)) return "—";
+    const sign = n > 0 ? "+" : "";
+    return `${sign}${n.toFixed(1)} pp`;
+  }
+
+  function fmtSignedLine(x) {
+    const n = Number(x);
+    if (!Number.isFinite(n)) return "—";
+    const sign = n > 0 ? "+" : "";
+    return `${sign}${Number.isInteger(n) ? n : n}`;
+  }
+
+  function enrichEdge(e) {
+    const fair = Number(e.fair_prob);
+    const offered = Number(e.offered_prob);
+    const probDelta =
+      Number.isFinite(fair) && Number.isFinite(offered) ? (fair - offered) * 100 : null;
+    let lineDiff = Number(e.line_diff);
+    if (!Number.isFinite(lineDiff)) {
+      const pp = Number(e.pp_line);
+      const book = Number(e.book_line);
+      lineDiff = Number.isFinite(pp) && Number.isFinite(book) ? pp - book : null;
+    }
+    return { ...e, prob_delta: probDelta, line_diff: lineDiff };
+  }
+
   function fmtLine(x) {
     const n = Number(x);
     if (!Number.isFinite(n)) return "—";
@@ -175,6 +203,8 @@
     for (const r of rows) {
       const tr = document.createElement("tr");
       const tier = (r.tier || "standard").toLowerCase();
+      const probClass =
+        Number(r.prob_delta) > 0 ? "edge-pos" : Number(r.prob_delta) < 0 ? "edge-neg" : "";
       tr.innerHTML = `
         <td class="num edge-pos">${fmtEdge(r.edge_pct)}</td>
         <td>${escapeHtml(r.player)}</td>
@@ -183,8 +213,10 @@
         <td class="tier-${tier}">${escapeHtml(r.tier || "standard")}</td>
         <td class="num">${fmtLine(r.pp_line)}</td>
         <td class="num">${fmtLine(r.book_line)}</td>
-        <td class="num">${fmtPct(r.fair_prob)}</td>
-        <td class="num">${fmtPct(r.offered_prob)}</td>
+        <td class="num">${fmtSignedLine(r.line_diff)}</td>
+        <td class="num" title="Book probability of this outcome">${fmtPct(r.fair_prob)}</td>
+        <td class="num" title="PrizePicks implied / proxy probability">${fmtPct(r.offered_prob)}</td>
+        <td class="num ${probClass}" title="Book prob − PP prob">${fmtSignedPctPoints(r.prob_delta)}</td>
         <td>${escapeHtml(r.game || r.matchup || "")}</td>
         <td>${escapeHtml(prettySport(r.sport))}</td>
       `;
@@ -211,7 +243,10 @@
       if (!data || !Array.isArray(data.edges)) {
         throw new Error("edges.json missing edges[] — unexpected shape");
       }
-      board = data;
+      board = {
+        ...data,
+        edges: (data.edges || []).map(enrichEdge),
+      };
       render();
       void manual;
     } catch (err) {
@@ -235,7 +270,7 @@
       if (sortKey === key) sortDir *= -1;
       else {
         sortKey = key;
-        sortDir = key === "edge_pct" ? -1 : 1;
+        sortDir = key === "edge_pct" || key === "prob_delta" || key === "fair_prob" ? -1 : 1;
       }
       render();
     });

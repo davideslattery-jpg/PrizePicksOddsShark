@@ -95,3 +95,5 @@ tbody tr:hover { background: var(--row-hover); }
   font-size: 0.92rem;
 }
 .stale strong { color: #fff3c4; }
+
+.edge-neg { color: #f87171; font-variant-numeric: tabular-nums; }
