@@ -2,9 +2,9 @@ name: Update edges board
 
 on:
   schedule:
-    # Every 30 minutes during typical US sports hours (UTC): afternoon through late night ET
-    - cron: "0,30 15-23 * * *"
-    - cron: "0,30 0-5 * * *"
+    # Free-tier budget: ~2 refreshes/day during US sports window (UTC)
+    - cron: "15 17 * * *"
+    - cron: "15 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,13 +36,12 @@ jobs:
           set -euo pipefail
           mkdir -p docs/data
           OUT="docs/data/edges.json"
-          SPORTS="all"
-          # Cap per-sport event fetches to control quota (multi-sport burns credits fast)
-          MAX_EVENTS=6
+          # Free-tier mode: NFL + NBA only, few events, lean markets (no alternates)
+          SPORTS="basketball_nba,americanfootball_nfl"
+          MAX_EVENTS=2
           if [ -n "${ODDS_API_KEY:-}" ]; then
-            echo "ODDS_API_KEY present — live multi-sport export (--sport ${SPORTS})"
-            # Prefer live; fall back to demo if live fails (quota / coverage)
-            if pp-odds --sport "$SPORTS" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+            echo "ODDS_API_KEY present — free-tier live export (--sport ${SPORTS}, lean)"
+            if pp-odds --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
               echo "Live export OK"
             else
               echo "Live export failed — falling back to --demo"
@@ -52,7 +51,7 @@ jobs:
             echo "ODDS_API_KEY missing — publishing demo board"
             pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
           fi
-          python - <<'PY'
+          python - <<'PY2'
           import json
           from collections import Counter
           from pathlib import Path
@@ -65,7 +64,7 @@ jobs:
               f"sports={data.get('sports')} per_sport={dict(counts)} "
               f"updated_at={data.get('updated_at')}"
           )
-          PY
+          PY2
 
       - name: Commit board if changed
         run: |

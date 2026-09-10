@@ -42,7 +42,7 @@ uv pip install -e ".[dev]"
 
 Event prop calls cost **credits per market × region**. This CLI requests FanDuel (or Pinnacle) **plus** PrizePicks and includes `*_alternate` markets for demons/goblins. Use `--max-events` to limit spend **per sport**, rely on the disk cache (5–10 min TTL), and watch response headers `x-requests-remaining` / `x-requests-used` printed after live runs. Empty responses generally do not consume quota.
 
-**Multi-sport quota:** `--sport all` (or a long comma list) multiplies cost roughly by the number of sports with live events. The GitHub Action uses `--sport all` with `--max-events 6` every **30 minutes** during US sports hours — expect higher daily credit use than the old NBA-only hourly job. Sports with no events or API errors are skipped with a warning (board still publishes).
+**Free-tier / no-pay mode (default for the GitHub Action):** NBA + NFL only, `--lean` (fewer markets, no demon/goblin alternates), `--max-events 2`, about **twice per day**. That keeps you on The Odds API free credit budget. Use `--sport all` / drop `--lean` only if you upgrade or accept burning quota faster. Sports with no events or API errors are skipped with a warning (board still publishes).
 
 ## Usage
 
@@ -167,7 +167,7 @@ The page loads `docs/data/edges.json` (cache-busted), auto-reloads every ~3 minu
    **Actions** → **Update edges board** → **Run workflow** → **Run workflow**.  
    Uses live export when `ODDS_API_KEY` is set; otherwise `--demo`.
 
-Scheduled runs refresh roughly **every 30 minutes** during typical US sports hours (multi-sport live export). The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
+Scheduled runs refresh about **twice per day** in free-tier lean mode (NBA + NFL). The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
 
 ### Local export for the board
 

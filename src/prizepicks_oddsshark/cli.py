@@ -37,9 +37,10 @@ def _fetch_sport_edges(
     max_events: int,
     min_edge: float,
     demo: bool,
+    lean: bool = False,
 ) -> list[RankedEdge]:
     """Fetch + rank one sport. Returns [] on soft failures (no events / API error)."""
-    market_list = markets_override or default_markets_for_sport(sport)
+    market_list = markets_override or default_markets_for_sport(sport, lean=lean)
 
     if demo and sport != "basketball_nba":
         console.print(
@@ -49,7 +50,11 @@ def _fetch_sport_edges(
 
     try:
         events = client.fetch_prop_events(
-            sport, market_list, book=book, max_events=max_events
+            sport,
+            market_list,
+            book=book,
+            max_events=max_events,
+            include_alternates=not lean,
         )
     except OddsAPIError as exc:
         console.print(f"[yellow]Warning: {sport} fetch failed — {exc}[/yellow]")
@@ -113,6 +118,11 @@ def main(
         "--max-events",
         help="Max events to query per sport (each costs API credits)",
     ),
+    lean: bool = typer.Option(
+        False,
+        "--lean",
+        help="Free-tier mode: fewer markets and skip PrizePicks alternate (demon/goblin) lines",
+    ),
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ) -> None:
     """Rank PrizePicks options by edge vs de-vigged book implied probability."""
@@ -152,6 +162,7 @@ def main(
             max_events=max_events,
             min_edge=min_edge,
             demo=demo,
+            lean=lean,
         )
         if rows or (demo and sp == "basketball_nba"):
             # Track sports we attempted that produced edges, or demo NBA
@@ -177,7 +188,7 @@ def main(
     console.print(
         f"[bold]PrizePicksOddsShark[/bold] {__version__}  "
         f"[{mode}] sport={sport_label} book={book} min_edge={min_edge}%  "
-        f"sports_ok={','.join(sports_with_data) or 'none'}"
+        f"lean={lean} sports_ok={','.join(sports_with_data) or 'none'}"
     )
     if not demo and client.last_headers:
         rem = client.last_headers.get("x-requests-remaining", "?")

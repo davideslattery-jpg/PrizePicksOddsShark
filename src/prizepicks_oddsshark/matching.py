@@ -136,8 +136,45 @@ _SPORT_MARKETS: dict[str, list[str]] = {
 }
 
 
-def default_markets_for_sport(sport: str) -> list[str]:
-    """Return sensible Odds API market keys for a sport (copy)."""
+LEAN_MARKETS_NBA = [
+    "player_points",
+    "player_rebounds",
+    "player_assists",
+]
+
+LEAN_MARKETS_NFL = [
+    "player_pass_yds",
+    "player_rush_yds",
+    "player_reception_yds",
+]
+
+LEAN_MARKETS_MLB = [
+    "batter_hits",
+    "pitcher_strikeouts",
+]
+
+LEAN_MARKETS_NHL = [
+    "player_goals",
+    "player_shots_on_goal",
+]
+
+_LEAN_SPORT_MARKETS: dict[str, list[str]] = {
+    "basketball_nba": LEAN_MARKETS_NBA,
+    "americanfootball_nfl": LEAN_MARKETS_NFL,
+    "baseball_mlb": LEAN_MARKETS_MLB,
+    "icehockey_nhl": LEAN_MARKETS_NHL,
+    "basketball_ncaab": LEAN_MARKETS_NBA,
+    "americanfootball_ncaaf": LEAN_MARKETS_NFL,
+}
+
+
+def default_markets_for_sport(sport: str, *, lean: bool = False) -> list[str]:
+    """Return sensible Odds API market keys for a sport (copy).
+
+    lean=True uses a smaller market set for free-tier credit budgets.
+    """
+    if lean:
+        return list(_LEAN_SPORT_MARKETS.get(sport, LEAN_MARKETS_NBA))
     return list(_SPORT_MARKETS.get(sport, DEFAULT_MARKETS_NBA))
 
 

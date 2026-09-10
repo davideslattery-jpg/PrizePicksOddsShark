@@ -133,23 +133,26 @@ class OddsClient:
         *,
         book: str = "fanduel",
         max_events: int = 8,
+        include_alternates: bool = True,
     ) -> list[dict[str, Any]]:
         """List events, then pull FanDuel + PrizePicks props per event.
 
         Regions: `us` (or `eu` for pinnacle) + `us_dfs` for PrizePicks.
         Bookmakers filter keeps quota focused.
+        Set include_alternates=False for free-tier / lean runs (skips demon/goblin alts).
         """
         events = self.list_events(sport)
         if self.demo:
             return [self.event_odds(sport, "demo", regions="us,us_dfs", markets=",".join(markets))]
 
-        # Include alternate markets for PrizePicks demons/goblins
+        # Include alternate markets for PrizePicks demons/goblins (unless lean)
         market_keys: list[str] = []
         for m in markets:
             market_keys.append(m)
-            alt = f"{m}_alternate"
-            if alt not in market_keys:
-                market_keys.append(alt)
+            if include_alternates:
+                alt = f"{m}_alternate"
+                if alt not in market_keys:
+                    market_keys.append(alt)
         markets_param = ",".join(market_keys)
 
         if book == "pinnacle":
