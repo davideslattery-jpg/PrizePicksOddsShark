@@ -1,0 +1,72 @@
+name: Update edges board
+
+on:
+  schedule:
+    # ~hourly during typical US sports hours (UTC): afternoon through late night ET
+    - cron: "20 15-23 * * *"
+    - cron: "20 0-5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-edges
+  cancel-in-progress: true
+
+jobs:
+  export-edges:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Export edges (live or demo)
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/data
+          OUT="docs/data/edges.json"
+          if [ -n "${ODDS_API_KEY:-}" ]; then
+            echo "ODDS_API_KEY present — live NBA export"
+            # Prefer live; fall back to demo if live fails (quota / coverage)
+            if pp-odds --sport basketball_nba --min-edge 2 --max-events 6 --export "$OUT"; then
+              echo "Live export OK"
+            else
+              echo "Live export failed — falling back to --demo"
+              pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+            fi
+          else
+            echo "ODDS_API_KEY missing — publishing demo board"
+            pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("docs/data/edges.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert "edges" in data and "updated_at" in data
+          print(f"board mode={data.get('mode')} count={data.get('count')} updated_at={data.get('updated_at')}")
+          PY
+
+      - name: Commit board if changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/edges.json
+          if git diff --staged --quiet; then
+            echo "No changes to edges.json — skip commit"
+          else
+            git commit -m "chore: refresh docs/data/edges.json [skip ci]"
+            git push
+          fi
