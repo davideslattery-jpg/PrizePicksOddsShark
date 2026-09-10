@@ -13,7 +13,7 @@ CLI that compares **PrizePicks** player props to a sportsbook (**FanDuel** by de
 - Rank by edge % with `--min-edge` (default **2%**)
 - Disk cache (TTL ~8 minutes) to save API credits
 - `--demo` mode with JSON fixtures (no API key)
-- Optional `--export` to CSV or JSON
+- Optional `--export` to CSV or board JSON (GitHub Pages under `docs/`)
 
 ## Setup
 
@@ -106,14 +106,18 @@ PrizePicksOddsShark/
   README.md
   .env.example
   .gitignore
+  .github/workflows/update-edges.yml
   fixtures/                 # demo JSON (events + event odds)
+  docs/                     # GitHub Pages site
+    index.html / styles.css / app.js
+    data/edges.json         # board payload (CI-refreshed)
   src/prizepicks_oddsshark/
     cli.py                  # Typer entry (pp-odds)
     client.py               # Odds API + disk cache
     matching.py             # name/market normalize + match
     probability.py          # odds math + line adjust
     ranker.py               # edge ranking
-    export_util.py          # CSV/JSON export
+    export_util.py          # CSV / board JSON export
   tests/                    # pytest (offline)
 ```
 
@@ -132,6 +136,38 @@ All tests run **offline** (no API key).
 - Demon/goblin detection follows Odds API conventions (`+100` → demon on alternate markets).
 - No portfolio / correlation / entry sizing; single-leg edge only.
 - Live availability depends on The Odds API coverage for `us_dfs` / PrizePicks.
+
+
+## Live board (GitHub Pages)
+
+Bookmarkable ranked edges board (vanilla HTML/JS under `docs/`):
+
+**https://davideslattery-jpg.github.io/PrizePicksOddsShark/**
+
+The page loads `docs/data/edges.json`, auto-reloads every ~3 minutes, and has a Refresh button. Sport filter + min-edge controls are client-side.
+
+### One-time setup
+
+1. **Enable Pages**  
+   Repo → **Settings** → **Pages** → **Deploy from a branch** → Branch: `main`, Folder: `/docs` → Save.
+2. **Add Odds API secret (for live data)**  
+   Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**  
+   Name: `ODDS_API_KEY` · Value: your key from [the-odds-api.com](https://the-odds-api.com/).  
+   Without this secret, the scheduled workflow still publishes a **demo** board so the page keeps working.
+3. **Manual refresh**  
+   **Actions** → **Update edges board** → **Run workflow** → **Run workflow**.  
+   Uses live export when `ODDS_API_KEY` is set; otherwise `--demo`.
+
+Scheduled runs refresh roughly hourly during typical US sports hours. The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
+
+### Local export for the board
+
+```bash
+pp-odds --demo --export docs/data/edges.json
+pp-odds --sport basketball_nba --export docs/data/edges.json
+```
+
+JSON exports use a board envelope (`updated_at`, `mode`, `edges[]` with `game` / `sport`, etc.) for the Pages UI. CSV export remains a flat table.
 
 ## License
 

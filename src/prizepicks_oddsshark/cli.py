@@ -146,7 +146,7 @@ def main(
         console.print(f"[dim]Showing {min(len(rows), 50)} of {len(rows)} rows[/dim]")
 
     if export:
-        path = export_rows(rows, export)
+        path = export_rows(rows, export, sport=sport, book=book, demo=demo)
         console.print(f"Exported {len(rows)} rows → {path}")
 
 

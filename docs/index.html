@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PrizePicksOddsShark — Edges Board</title>
+  <meta name="description" content="Ranked PrizePicks vs FanDuel edges (personal research)." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>PrizePicksOddsShark</h1>
+        <p class="sub">Ranked PrizePicks edges vs FanDuel fair odds · personal research only</p>
+      </div>
+      <div class="controls">
+        <label class="field">
+          Sport
+          <select id="sportFilter" aria-label="Filter by sport">
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label class="field">
+          Min edge %
+          <input id="minEdge" type="number" min="0" step="0.5" value="2" />
+        </label>
+        <button type="button" id="refreshBtn" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <section class="status" id="statusBar" aria-live="polite">
+      <span id="updatedAt">Loading…</span>
+      <span id="modeBadge" class="badge"></span>
+      <span id="countLabel"></span>
+      <span id="reloadHint" class="dim">Auto-reload ~3 min</span>
+    </section>
+
+    <div id="errorBox" class="error hidden" role="alert"></div>
+    <div id="emptyBox" class="empty hidden">No edges above the filter threshold.</div>
+
+    <div class="table-wrap">
+      <table id="edgesTable">
+        <thead>
+          <tr>
+            <th data-sort="edge_pct">Edge%</th>
+            <th data-sort="player">Player</th>
+            <th data-sort="market">Market</th>
+            <th data-sort="side">Side</th>
+            <th data-sort="tier">Tier</th>
+            <th data-sort="pp_line">PP</th>
+            <th data-sort="book_line">Book</th>
+            <th data-sort="fair_prob">Fair</th>
+            <th data-sort="offered_prob">Offered</th>
+            <th data-sort="game">Game</th>
+            <th data-sort="sport">Sport</th>
+          </tr>
+        </thead>
+        <tbody id="edgesBody"></tbody>
+      </table>
+    </div>
+
+    <footer class="foot">
+      <p>
+        Data from <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>.
+        Not affiliated with PrizePicks or FanDuel. Free API quota applies; board may be demo data.
+        Bookmark:
+        <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>
+      </p>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
