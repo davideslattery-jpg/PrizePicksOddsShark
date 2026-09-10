@@ -17,6 +17,7 @@ from prizepicks_oddsshark.matching import (
     SUPPORTED_SPORTS,
     default_markets_for_sport,
     parse_sport_arg,
+    team_filter_applies,
 )
 from prizepicks_oddsshark.ranker import RankedEdge, rank_edges
 
@@ -38,6 +39,7 @@ def _fetch_sport_edges(
     min_edge: float,
     demo: bool,
     lean: bool = False,
+    team: str | None = None,
 ) -> list[RankedEdge]:
     """Fetch + rank one sport. Returns [] on soft failures (no events / API error)."""
     market_list = markets_override or default_markets_for_sport(sport, lean=lean)
@@ -49,19 +51,24 @@ def _fetch_sport_edges(
         return []
 
     try:
+        team_q = team if (team and team_filter_applies(sport)) else None
         events = client.fetch_prop_events(
             sport,
             market_list,
             book=book,
             max_events=max_events,
             include_alternates=not lean,
+            team=team_q,
         )
     except OddsAPIError as exc:
         console.print(f"[yellow]Warning: {sport} fetch failed — {exc}[/yellow]")
         return []
 
     if not events:
-        console.print(f"[yellow]Warning: {sport} — no events / empty odds; skipping[/yellow]")
+        extra = f" (team={team})" if team and team_filter_applies(sport) else ""
+        console.print(
+            f"[yellow]Warning: {sport} — no events / empty odds{extra}; skipping[/yellow]"
+        )
         return []
 
     rows = rank_edges(
@@ -123,6 +130,14 @@ def main(
         "--lean",
         help="Free-tier mode: fewer markets and skip PrizePicks alternate (demon/goblin) lines",
     ),
+    team: Optional[str] = typer.Option(
+        None,
+        "--team",
+        help=(
+            "Only include events matching this team name substring on college sports "
+            "(e.g. Nebraska for Cornhuskers NCAAF). Ignored for NFL/NBA/MLB/NHL."
+        ),
+    ),
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ) -> None:
     """Rank PrizePicks options by edge vs de-vigged book implied probability."""
@@ -163,6 +178,7 @@ def main(
             min_edge=min_edge,
             demo=demo,
             lean=lean,
+            team=team,
         )
         if rows or (demo and sp == "basketball_nba"):
             # Track sports we attempted that produced edges, or demo NBA
@@ -188,7 +204,7 @@ def main(
     console.print(
         f"[bold]PrizePicksOddsShark[/bold] {__version__}  "
         f"[{mode}] sport={sport_label} book={book} min_edge={min_edge}%  "
-        f"lean={lean} sports_ok={','.join(sports_with_data) or 'none'}"
+        f"lean={lean} team={team or '-'} sports_ok={','.join(sports_with_data) or 'none'}"
     )
     if not demo and client.last_headers:
         rem = client.last_headers.get("x-requests-remaining", "?")

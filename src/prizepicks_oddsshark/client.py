@@ -134,14 +134,25 @@ class OddsClient:
         book: str = "fanduel",
         max_events: int = 8,
         include_alternates: bool = True,
+        team: str | None = None,
     ) -> list[dict[str, Any]]:
         """List events, then pull FanDuel + PrizePicks props per event.
 
         Regions: `us` (or `eu` for pinnacle) + `us_dfs` for PrizePicks.
         Bookmakers filter keeps quota focused.
         Set include_alternates=False for free-tier / lean runs (skips demon/goblin alts).
+        Optional team substring filters to events whose home/away team matches
+        (e.g. "Nebraska" for Cornhuskers NCAAF) before spending prop credits.
         """
         events = self.list_events(sport)
+        if team:
+            needle = team.strip().lower()
+            events = [
+                ev
+                for ev in events
+                if needle in str(ev.get("home_team", "")).lower()
+                or needle in str(ev.get("away_team", "")).lower()
+            ]
         if self.demo:
             return [self.event_odds(sport, "demo", regions="us,us_dfs", markets=",".join(markets))]
 

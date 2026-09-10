@@ -182,3 +182,8 @@ JSON exports use a board envelope (`updated_at`, `mode`, `edges[]` with `game` /
 ## License
 
 MIT — for personal research. You are responsible for compliance with local law and all third-party ToS.
+
+
+## Nebraska Cornhuskers
+
+Free-tier board includes NCAAF filtered to **Nebraska** only (`--team Nebraska`), so you only spend prop credits on Huskers games when they are on the slate. Action Network is not used (no public odds API; scraping is out of scope).

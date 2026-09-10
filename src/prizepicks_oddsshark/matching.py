@@ -178,6 +178,14 @@ def default_markets_for_sport(sport: str, *, lean: bool = False) -> list[str]:
     return list(_SPORT_MARKETS.get(sport, DEFAULT_MARKETS_NBA))
 
 
+def team_filter_applies(sport: str) -> bool:
+    """Team filters are for college (and similar) slates — not NFL/NBA/MLB/NHL.
+
+    Keeps --team Nebraska from wiping pro sports when run in a multi-sport board.
+    """
+    return "ncaa" in (sport or "").lower()
+
+
 def parse_sport_arg(sport: str) -> list[str]:
     """Parse --sport value: single key, comma list, or 'all'.
 
