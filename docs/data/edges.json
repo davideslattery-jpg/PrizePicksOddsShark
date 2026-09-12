@@ -1,31 +1,13 @@
 {
-  "updated_at": "2026-09-12T05:45:50Z",
+  "updated_at": "2026-09-12T19:20:29Z",
   "generated_by": "pp-odds",
   "mode": "live",
   "book": "fanduel",
   "sports": [
-    "basketball_nba"
+    "basketball_nba",
+    "americanfootball_nfl",
+    "americanfootball_ncaaf"
   ],
-  "count": 1,
-  "edges": [
-    {
-      "player": "Jayson Tatum",
-      "market": "player_assists",
-      "side": "Over",
-      "pp_line": 5.5,
-      "book_line": 5.5,
-      "line_diff": 0.0,
-      "tier": "standard",
-      "fair_prob": 0.5282,
-      "offered_prob": 0.5,
-      "edge_pct": 2.82,
-      "book": "fanduel",
-      "game": "Boston Celtics @ Detroit Pistons",
-      "sport": "basketball_nba",
-      "commence_time": "2026-10-20T19:00:00Z",
-      "event_id": "26b036ff107f3c658258eaf4a6f26228",
-      "adjusted": false,
-      "pp_price": -137.0
-    }
-  ]
+  "count": 0,
+  "edges": []
 }
