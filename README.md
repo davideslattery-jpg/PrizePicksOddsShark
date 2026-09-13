@@ -167,7 +167,7 @@ The page loads `docs/data/edges.json` (cache-busted), auto-reloads every ~3 minu
    **Actions** → **Update edges board** → **Run workflow** → **Run workflow**.  
    Uses live export when `ODDS_API_KEY` is set; otherwise `--demo`.
 
-Scheduled runs refresh about **twice per day** in free-tier lean mode (NBA + NFL). The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
+**No scheduled runs** — refresh is **manual only** (Actions → Update edges board → Run workflow) to conserve free API credits. The workflow commits `docs/data/edges.json` only when the file changes (`[skip ci]` bot commit). Free Odds API quota is limited — the CLI disk-caches responses (~8 min TTL) and the Action caps `--max-events`. Personal research only; not advice.
 
 ### Local export for the board
 

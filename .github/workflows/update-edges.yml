@@ -1,10 +1,7 @@
 name: Update edges board
 
 on:
-  schedule:
-    # Free-tier budget: ~2 refreshes/day during US sports window (UTC)
-    - cron: "15 17 * * *"
-    - cron: "15 1 * * *"
+  # Manual only — conserves free-tier API credits (no scheduled burns)
   workflow_dispatch:
 
 permissions:
