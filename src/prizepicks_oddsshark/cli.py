@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -11,7 +13,7 @@ from rich.console import Console
 from rich.table import Table
 
 from prizepicks_oddsshark import __version__
-from prizepicks_oddsshark.client import OddsAPIError, OddsClient
+from prizepicks_oddsshark.client import OddsAPIError
 from prizepicks_oddsshark.export_util import export_rows
 from prizepicks_oddsshark.matching import (
     SUPPORTED_SPORTS,
@@ -19,18 +21,28 @@ from prizepicks_oddsshark.matching import (
     parse_sport_arg,
     team_filter_applies,
 )
+from prizepicks_oddsshark.oddspapi_client import OddsPapiError
+from prizepicks_oddsshark.providers import make_client, resolve_provider
 from prizepicks_oddsshark.ranker import RankedEdge, rank_edges
+from prizepicks_oddsshark.slip_optimizer import (
+    probs_from_board_edges,
+    rank_slip_types,
+)
 
 app = typer.Typer(
     name="pp-odds",
-    help="Compare PrizePicks props to FanDuel/Pinnacle via The Odds API and rank by edge.",
+    help=(
+        "Compare PrizePicks props to FanDuel via OddsPapi (default) "
+        "or legacy The Odds API; rank by edge. Also: slip EV advisor."
+    ),
     add_completion=False,
+    invoke_without_command=True,
 )
 console = Console()
 
 
 def _fetch_sport_edges(
-    client: OddsClient,
+    client: object,
     sport: str,
     *,
     markets_override: list[str] | None,
@@ -52,7 +64,7 @@ def _fetch_sport_edges(
 
     try:
         team_q = team if (team and team_filter_applies(sport)) else None
-        events = client.fetch_prop_events(
+        events = client.fetch_prop_events(  # type: ignore[attr-defined]
             sport,
             market_list,
             book=book,
@@ -60,7 +72,7 @@ def _fetch_sport_edges(
             include_alternates=not lean,
             team=team_q,
         )
-    except OddsAPIError as exc:
+    except (OddsAPIError, OddsPapiError) as exc:
         console.print(f"[yellow]Warning: {sport} fetch failed — {exc}[/yellow]")
         return []
 
@@ -74,7 +86,6 @@ def _fetch_sport_edges(
     rows = rank_edges(
         events, book=book, markets=market_list, min_edge=min_edge, sport=sport
     )
-    # Ensure sport field is set even if fixture/API omitted sport_key
     for r in rows:
         if not r.sport:
             r.sport = sport
@@ -87,6 +98,7 @@ def _fetch_sport_edges(
 
 @app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     sport: str = typer.Option(
         "basketball_nba",
         "--sport",
@@ -138,12 +150,21 @@ def main(
             "(e.g. Nebraska for Cornhuskers NCAAF). Ignored for NFL/NBA/MLB/NHL."
         ),
     ),
+    provider: str = typer.Option(
+        "auto",
+        "--provider",
+        help="Odds provider: auto (OddsPapi if keyed), oddspapi, or theoddsapi (legacy)",
+    ),
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ) -> None:
     """Rank PrizePicks options by edge vs de-vigged book implied probability."""
     if version:
         console.print(__version__)
         raise typer.Exit(0)
+
+    # Subcommands (e.g. slip) handle themselves
+    if ctx.invoked_subcommand is not None:
+        return
 
     load_dotenv()
 
@@ -158,12 +179,22 @@ def main(
         console.print("[red]--book must be fanduel or pinnacle[/red]")
         raise typer.Exit(2)
 
+    try:
+        resolved = resolve_provider(provider)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+
     markets_override = (
         [m.strip() for m in markets.split(",") if m.strip()] if markets else None
     )
 
     fixtures = Path(__file__).resolve().parents[2] / "fixtures"
-    client = OddsClient(demo=demo, fixtures_dir=fixtures if fixtures.is_dir() else None)
+    client = make_client(
+        resolved if not demo else "theoddsapi",
+        demo=demo,
+        fixtures_dir=fixtures if fixtures.is_dir() else None,
+    )
 
     all_rows: list[RankedEdge] = []
     sports_with_data: list[str] = []
@@ -180,41 +211,37 @@ def main(
             lean=lean,
             team=team,
         )
-        if rows or (demo and sp == "basketball_nba"):
-            # Track sports we attempted that produced edges, or demo NBA
-            if rows:
-                sports_with_data.append(sp)
-            elif demo and sp == "basketball_nba":
-                sports_with_data.append(sp)
+        if rows:
+            sports_with_data.append(sp)
+        elif demo and sp == "basketball_nba":
+            sports_with_data.append(sp)
         all_rows.extend(rows)
 
     all_rows.sort(key=lambda r: r.edge_pct, reverse=True)
 
-    # If every sport failed hard with no rows and we only had one sport and
-    # it raised via empty+no soft path — still exit 0 for multi-sport boards
-    # so CI can publish partial boards. Single-sport live with total failure
-    # still exits 1 when nothing fetched at all and not demo.
-    if not demo and not all_rows and len(sports) == 1:
-        # Distinguish "no edges above threshold" (OK) vs "fetch totally failed"
-        # Soft-fail already logged; treat as yellow no-edges for UX consistency
-        pass
-
     mode = "DEMO" if demo else "LIVE"
     sport_label = ",".join(sports) if len(sports) > 1 else sports[0]
+    provider_label = "demo-fixtures" if demo else resolved
     console.print(
         f"[bold]PrizePicksOddsShark[/bold] {__version__}  "
-        f"[{mode}] sport={sport_label} book={book} min_edge={min_edge}%  "
-        f"lean={lean} team={team or '-'} sports_ok={','.join(sports_with_data) or 'none'}"
+        f"[{mode}] provider={provider_label} sport={sport_label} book={book} "
+        f"min_edge={min_edge}% lean={lean} team={team or '-'} "
+        f"sports_ok={','.join(sports_with_data) or 'none'}"
     )
-    if not demo and client.last_headers:
+    if not demo and getattr(client, "last_headers", None):
         rem = client.last_headers.get("x-requests-remaining", "?")
         used = client.last_headers.get("x-requests-used", "?")
-        console.print(f"[dim]API quota — used: {used}  remaining: {rem}[/dim]")
+        console.print(f"[dim]API quota-ish — used: {used}  remaining: {rem}[/dim]")
 
     if not all_rows:
         console.print(
             "[yellow]No edges above threshold (or no overlapping props).[/yellow]"
         )
+        if not demo and resolved == "oddspapi":
+            console.print(
+                "[dim]Tip: OddsPapi may lack PrizePicks markets for some fixtures; "
+                "empty slate is OK when auth works. Try --demo or another slate.[/dim]"
+            )
     else:
         table = Table(show_header=True, header_style="bold")
         for col in (
@@ -249,7 +276,6 @@ def main(
         console.print(f"[dim]Showing {min(len(all_rows), 50)} of {len(all_rows)} rows[/dim]")
 
     if export:
-        # Prefer sports that contributed edges; fall back to requested list
         export_sports = sports_with_data or sports
         path = export_rows(
             all_rows,
@@ -260,6 +286,89 @@ def main(
             sports=export_sports,
         )
         console.print(f"Exported {len(all_rows)} rows → {path}")
+
+
+@app.command("slip")
+def slip_cmd(
+    probs: Optional[str] = typer.Option(
+        None,
+        "--probs",
+        help="Comma-separated hit probabilities, e.g. 0.55,0.58,0.52 (2–6 values)",
+    ),
+    from_board: Optional[Path] = typer.Option(
+        None,
+        "--from-board",
+        help="Board JSON (edges.json); uses top edges' fair_prob",
+    ),
+    top: int = typer.Option(
+        4,
+        "--top",
+        help="When using --from-board, how many top edges by edge%% (2–6)",
+    ),
+) -> None:
+    """Rank Power/Flex slip types by EV given independent pick probabilities."""
+    load_dotenv()
+    values: list[float]
+    if probs:
+        try:
+            values = [float(x.strip()) for x in probs.split(",") if x.strip()]
+        except ValueError as exc:
+            console.print("[red]Could not parse --probs[/red]")
+            raise typer.Exit(2) from exc
+    elif from_board:
+        path = from_board
+        if not path.exists():
+            console.print(f"[red]Board not found: {path}[/red]")
+            raise typer.Exit(2)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        edges = data.get("edges") if isinstance(data, dict) else data
+        if not isinstance(edges, list):
+            console.print("[red]Board JSON missing edges[][/red]")
+            raise typer.Exit(2)
+        try:
+            values = probs_from_board_edges(edges, top=max(2, min(top, 6)))
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(2) from exc
+        console.print(
+            f"[dim]Using top {len(values)} board fair_prob(s): "
+            f"{', '.join(f'{p:.3f}' for p in values)}[/dim]"
+        )
+    else:
+        console.print("[red]Provide --probs or --from-board[/red]")
+        raise typer.Exit(2)
+
+    try:
+        ranked = rank_slip_types(values)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+
+    console.print(
+        f"[bold]Slip advisor[/bold] n={len(values)}  "
+        f"probs=[{', '.join(f'{p:.3f}' for p in values)}]  "
+        f"(independence assumed; payouts approximate)"
+    )
+    table = Table(show_header=True, header_style="bold")
+    for col in ("Rank", "Slip", "EV/$1", "E[payout]", "P(cash)", "P(max)", "Max mult"):
+        table.add_column(col)
+    for i, row in enumerate(ranked, start=1):
+        marker = " ★" if i == 1 else ""
+        table.add_row(
+            str(i),
+            f"{row.label}{marker}",
+            f"{row.ev:+.4f}",
+            f"{row.expected_payout:.4f}",
+            f"{row.p_cash:.1%}",
+            f"{row.p_max:.1%}",
+            f"{row.multiplier_max:g}x",
+        )
+    console.print(table)
+    best = ranked[0]
+    console.print(
+        f"[green]Recommended:[/green] {best.label}  "
+        f"EV={best.ev:+.4f} per $1  P(cash)={best.p_cash:.1%}"
+    )
 
 
 if __name__ == "__main__":

@@ -14,11 +14,17 @@
     minEdge: document.getElementById("minEdge"),
     refreshBtn: document.getElementById("refreshBtn"),
     staleBanner: document.getElementById("staleBanner"),
+    slipProbs: document.getElementById("slipProbs"),
+    slipFromSelection: document.getElementById("slipFromSelection"),
+    slipRun: document.getElementById("slipRun"),
+    slipStatus: document.getElementById("slipStatus"),
+    slipBody: document.getElementById("slipBody"),
   };
 
   let board = null;
   let sortKey = "edge_pct";
   let sortDir = -1;
+  const selectedKeys = new Set();
 
   const SPORT_LABELS = {
     basketball_nba: "NBA",
@@ -27,6 +33,15 @@
     icehockey_nhl: "NHL",
     americanfootball_ncaaf: "NCAAF",
     basketball_ncaab: "NCAAB",
+  };
+
+  const POWER_MULT = { 2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5 };
+  const FLEX_PAY = {
+    2: { 2: 2, 1: 0.5 },
+    3: { 3: 3, 2: 1 },
+    4: { 4: 6, 3: 1.5 },
+    5: { 5: 10, 4: 2, 3: 0.4 },
+    6: { 6: 25, 5: 2, 4: 0.4 },
   };
 
   function fmtPct(x) {
@@ -85,6 +100,10 @@
 
   function prettySport(s) {
     return SPORT_LABELS[s] || s || "—";
+  }
+
+  function edgeKey(r) {
+    return [r.event_id, r.player, r.market, r.side, r.pp_line, r.tier].join("|");
   }
 
   function localTime(iso) {
@@ -174,6 +193,128 @@
     return rows;
   }
 
+  function combinations(n, k) {
+    const out = [];
+    const idx = Array.from({ length: k }, (_, i) => i);
+    const push = () => out.push(idx.slice());
+    if (k === 0) return [[]];
+    if (k > n) return out;
+    push();
+    while (true) {
+      let i = k - 1;
+      while (i >= 0 && idx[i] === i + n - k) i -= 1;
+      if (i < 0) break;
+      idx[i] += 1;
+      for (let j = i + 1; j < k; j++) idx[j] = idx[j - 1] + 1;
+      push();
+    }
+    return out;
+  }
+
+  function probExactlyK(probs, k) {
+    const n = probs.length;
+    let total = 0;
+    for (const hit of combinations(n, k)) {
+      const set = new Set(hit);
+      let p = 1;
+      for (let i = 0; i < n; i++) p *= set.has(i) ? probs[i] : 1 - probs[i];
+      total += p;
+    }
+    return total;
+  }
+
+  function evaluateSlips(probs) {
+    const n = probs.length;
+    const rows = [];
+    if (POWER_MULT[n] != null) {
+      const pAll = probs.reduce((a, b) => a * b, 1);
+      const mult = POWER_MULT[n];
+      const expected = pAll * mult;
+      rows.push({
+        label: `${n} Power`,
+        ev: expected - 1,
+        expected,
+        pCash: pAll,
+        pMax: pAll,
+        maxMult: mult,
+      });
+    }
+    if (FLEX_PAY[n]) {
+      const pay = FLEX_PAY[n];
+      let expected = 0;
+      let pCash = 0;
+      for (const [kStr, mult] of Object.entries(pay)) {
+        const k = Number(kStr);
+        const pk = probExactlyK(probs, k);
+        expected += pk * mult;
+        if (mult > 0) pCash += pk;
+      }
+      rows.push({
+        label: `${n} Flex`,
+        ev: expected - 1,
+        expected,
+        pCash,
+        pMax: probExactlyK(probs, n),
+        maxMult: pay[n] || 0,
+      });
+    }
+    rows.sort((a, b) => b.ev - a.ev);
+    return rows;
+  }
+
+  function renderSlip(probs) {
+    if (!els.slipBody) return;
+    els.slipBody.innerHTML = "";
+    if (!probs || probs.length < 2 || probs.length > 6) {
+      if (els.slipStatus) {
+        els.slipStatus.textContent = "Enter 2–6 probabilities between 0 and 1.";
+      }
+      return;
+    }
+    const ranked = evaluateSlips(probs);
+    if (els.slipStatus) {
+      els.slipStatus.textContent =
+        `n=${probs.length} · probs=[${probs.map((p) => p.toFixed(3)).join(", ")}] · ` +
+        `recommended ${ranked[0]?.label || "—"} (independence assumed)`;
+    }
+    const frag = document.createDocumentFragment();
+    ranked.forEach((r, i) => {
+      const tr = document.createElement("tr");
+      if (i === 0) tr.classList.add("slip-best");
+      tr.innerHTML = `
+        <td>${escapeHtml(r.label)}</td>
+        <td class="num">${r.ev >= 0 ? "+" : ""}${r.ev.toFixed(4)}</td>
+        <td class="num">${r.expected.toFixed(4)}</td>
+        <td class="num">${fmtPct(r.pCash)}</td>
+        <td class="num">${fmtPct(r.pMax)}</td>
+        <td class="num">${r.maxMult}x</td>
+      `;
+      frag.appendChild(tr);
+    });
+    els.slipBody.appendChild(frag);
+  }
+
+  function parseProbsInput(text) {
+    return String(text || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter((n) => Number.isFinite(n));
+  }
+
+  function selectedFairProbs() {
+    if (!board) return [];
+    const byKey = new Map((board.edges || []).map((e) => [edgeKey(e), e]));
+    const probs = [];
+    for (const k of selectedKeys) {
+      const e = byKey.get(k);
+      const p = Number(e?.fair_prob);
+      if (Number.isFinite(p)) probs.push(p);
+    }
+    return probs;
+  }
+
   function render() {
     if (!board) return;
     clearError();
@@ -205,7 +346,10 @@
       const tier = (r.tier || "standard").toLowerCase();
       const probClass =
         Number(r.prob_delta) > 0 ? "edge-pos" : Number(r.prob_delta) < 0 ? "edge-neg" : "";
+      const key = edgeKey(r);
+      const checked = selectedKeys.has(key) ? "checked" : "";
       tr.innerHTML = `
+        <td class="chk-col"><input type="checkbox" data-key="${escapeHtml(key)}" ${checked} aria-label="Select for slip" /></td>
         <td class="num edge-pos">${fmtEdge(r.edge_pct)}</td>
         <td>${escapeHtml(r.player)}</td>
         <td class="market">${escapeHtml(prettyMarket(r.market))}</td>
@@ -223,6 +367,21 @@
       frag.appendChild(tr);
     }
     els.body.appendChild(frag);
+    els.body.querySelectorAll("input[type=checkbox][data-key]").forEach((box) => {
+      box.addEventListener("change", () => {
+        const k = box.getAttribute("data-key");
+        if (!k) return;
+        if (box.checked) {
+          if (selectedKeys.size >= 6) {
+            box.checked = false;
+            return;
+          }
+          selectedKeys.add(k);
+        } else {
+          selectedKeys.delete(k);
+        }
+      });
+    });
   }
 
   function escapeHtml(s) {
@@ -263,6 +422,26 @@
   els.refreshBtn.addEventListener("click", () => loadData({ manual: true }));
   els.sportFilter.addEventListener("change", render);
   els.minEdge.addEventListener("input", render);
+
+  if (els.slipRun) {
+    els.slipRun.addEventListener("click", () => {
+      const probs = parseProbsInput(els.slipProbs?.value);
+      renderSlip(probs);
+    });
+  }
+  if (els.slipFromSelection) {
+    els.slipFromSelection.addEventListener("click", () => {
+      const probs = selectedFairProbs();
+      if (probs.length < 2) {
+        if (els.slipStatus) {
+          els.slipStatus.textContent = "Select 2–6 rows (checkbox) with book probs first.";
+        }
+        return;
+      }
+      if (els.slipProbs) els.slipProbs.value = probs.map((p) => p.toFixed(3)).join(",");
+      renderSlip(probs.slice(0, 6));
+    });
+  }
 
   document.querySelectorAll("#edgesTable thead th[data-sort]").forEach((th) => {
     th.addEventListener("click", () => {

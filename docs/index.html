@@ -49,6 +49,7 @@
       <table id="edgesTable">
         <thead>
           <tr>
+            <th title="Select for slip advisor" class="chk-col">Slip</th>
             <th data-sort="edge_pct" title="Fair book prob minus PP offered prob (percentage points)">Edge%</th>
             <th data-sort="player">Player</th>
             <th data-sort="market">Market</th>
@@ -68,10 +69,44 @@
       </table>
     </div>
 
+    <section class="slip" id="slipAdvisor" aria-label="Slip advisor">
+      <h2>Slip advisor</h2>
+      <p class="slip-note">
+        Rank Power / Flex by expected value using book (fair) hit probs.
+        Assumes <strong>independent</strong> picks; payouts are approximate Player Pick multiples and can change in-app. Personal research only.
+      </p>
+      <div class="slip-controls">
+        <label class="field">
+          Paste probs (2–6)
+          <input id="slipProbs" type="text" placeholder="0.55,0.58,0.52" />
+        </label>
+        <button type="button" id="slipFromSelection" class="btn btn-secondary">Use selected rows</button>
+        <button type="button" id="slipRun" class="btn">Rank slips</button>
+      </div>
+      <p id="slipStatus" class="dim"></p>
+      <div class="table-wrap slip-table-wrap">
+        <table id="slipTable">
+          <thead>
+            <tr>
+              <th>Slip</th>
+              <th>EV / $1</th>
+              <th>E[payout]</th>
+              <th>P(cash)</th>
+              <th>P(max)</th>
+              <th>Max mult</th>
+            </tr>
+          </thead>
+          <tbody id="slipBody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <footer class="foot">
       <p>
-        Data from <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>.
-        Not affiliated with PrizePicks or FanDuel. Data refresh is manual (GitHub Actions → Update edges board → Run workflow). Free API quota applies.
+        Live odds via <a href="https://oddspapi.io/" rel="noopener">OddsPapi</a>
+        (The Odds API is legacy/optional).
+        Not affiliated with PrizePicks or FanDuel. Data refresh is <strong>manual only</strong>
+        (GitHub Actions → Update edges board → Run workflow). Free API quota applies.
         Bookmark:
         <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>
       </p>

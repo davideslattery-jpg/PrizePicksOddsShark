@@ -1,0 +1,1050 @@
+{
+  "fixtures": [
+    {
+      "fixtureId": "id1400003171474268",
+      "sportId": 14,
+      "tournamentId": 31,
+      "tournamentName": "NFL",
+      "startTime": "2026-09-15T00:15:00.000Z",
+      "participant1Name": "Kansas City Chiefs",
+      "participant2Name": "Denver Broncos",
+      "statusId": 0,
+      "hasOdds": true
+    }
+  ],
+  "odds": {
+    "fixtureId": "id1400003171474268",
+    "sportId": 14,
+    "tournamentId": 31,
+    "tournamentName": "NFL",
+    "startTime": "2026-09-15T00:15:00.000Z",
+    "participant1Name": "Kansas City Chiefs",
+    "participant2Name": "Denver Broncos",
+    "statusId": 0,
+    "hasOdds": true,
+    "bookmakerOdds": {
+      "fanduel": {
+        "bookmakerIsActive": true,
+        "suspended": false,
+        "markets": {
+          "14398": {
+            "marketActive": true,
+            "outcomes": {
+              "14399": {
+                "players": {
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 1.63,
+                    "priceAmerican": "-159",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "16593718"
+                  },
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 1.57,
+                    "priceAmerican": "-175",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "41331177"
+                  }
+                }
+              },
+              "14398": {
+                "players": {
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 2.3,
+                    "priceAmerican": "130",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "60317000"
+                  },
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 2.18,
+                    "priceAmerican": "118",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "53089730"
+                  }
+                }
+              }
+            }
+          },
+          "148665": {
+            "marketActive": true,
+            "outcomes": {
+              "148665": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40877797"
+                  }
+                }
+              },
+              "148666": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40877798"
+                  }
+                }
+              }
+            }
+          },
+          "14418": {
+            "marketActive": true,
+            "outcomes": {
+              "14418": {
+                "players": {
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.94,
+                    "priceAmerican": "-106",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "61618946"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 9.0,
+                    "priceAmerican": "800",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "87765854"
+                  },
+                  "2152156": {
+                    "active": true,
+                    "playerName": "Bryant, Pat",
+                    "price": 10.2,
+                    "priceAmerican": "920",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "90629759"
+                  }
+                }
+              },
+              "14419": {
+                "players": {
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.8,
+                    "priceAmerican": "-125",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "48551004"
+                  }
+                }
+              }
+            }
+          },
+          "148637": {
+            "marketActive": true,
+            "outcomes": {
+              "148637": {
+                "players": {
+                  "1185936": {
+                    "active": true,
+                    "playerName": "Sutton, Courtland",
+                    "price": 1.72,
+                    "priceAmerican": "-139",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40905579"
+                  },
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.36,
+                    "priceAmerican": "-278",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "49115880"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.41,
+                    "priceAmerican": "-244",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40902736"
+                  }
+                }
+              }
+            }
+          },
+          "14416": {
+            "marketActive": true,
+            "outcomes": {
+              "14416": {
+                "players": {
+                  "1435193": {
+                    "active": true,
+                    "playerName": "Thornton, Tyquan",
+                    "price": 18.0,
+                    "priceAmerican": "1700",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "63518172"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 5.1,
+                    "priceAmerican": "410",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "87765856"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "61437080"
+                  }
+                }
+              },
+              "14417": {
+                "players": {
+                  "1185936": {
+                    "active": true,
+                    "playerName": "Sutton, Courtland",
+                    "price": 1.6,
+                    "priceAmerican": "-167",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "16490005"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40877798"
+                  }
+                }
+              }
+            }
+          },
+          "148567": {
+            "marketActive": true,
+            "outcomes": {
+              "148567": {
+                "players": {
+                  "2152156": {
+                    "active": true,
+                    "playerName": "Bryant, Pat",
+                    "price": 1.09,
+                    "priceAmerican": "-1111",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "90629753"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.15,
+                    "priceAmerican": "-667",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "87765807"
+                  },
+                  "2197934": {
+                    "active": true,
+                    "playerName": "Gray, Noah",
+                    "price": 1.42,
+                    "priceAmerican": "-238",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "73482243"
+                  }
+                }
+              }
+            }
+          },
+          "145926": {
+            "marketActive": true,
+            "outcomes": {
+              "145926": {
+                "players": {
+                  "1692489": {
+                    "active": true,
+                    "playerName": "Walker III, Kenneth",
+                    "price": 5.5,
+                    "priceAmerican": "450",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "49413182"
+                  },
+                  "2040183": {
+                    "active": true,
+                    "playerName": "Dobbins, J.K.",
+                    "price": 8.5,
+                    "priceAmerican": "750",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "48309549"
+                  }
+                }
+              }
+            }
+          },
+          "148631": {
+            "marketActive": true,
+            "outcomes": {
+              "148631": {
+                "players": {
+                  "2151630": {
+                    "active": true,
+                    "playerName": "Worthy, Xavier",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "41066840"
+                  }
+                }
+              },
+              "148632": {
+                "players": {
+                  "2151630": {
+                    "active": true,
+                    "playerName": "Worthy, Xavier",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "41066847"
+                  }
+                }
+              }
+            }
+          },
+          "148591": {
+            "marketActive": true,
+            "outcomes": {
+              "148591": {
+                "players": {
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "50744298"
+                  }
+                }
+              },
+              "148592": {
+                "players": {
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "50744300"
+                  }
+                }
+              }
+            }
+          },
+          "145776": {
+            "marketActive": true,
+            "outcomes": {
+              "145776": {
+                "players": {
+                  "2040183": {
+                    "active": true,
+                    "playerName": "Dobbins, J.K.",
+                    "price": 1.13,
+                    "priceAmerican": "-769",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "48309547"
+                  },
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 3.25,
+                    "priceAmerican": "225",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "48954420"
+                  },
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 3.8,
+                    "priceAmerican": "280",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "38245803"
+                  }
+                }
+              }
+            }
+          },
+          "148807": {
+            "marketActive": true,
+            "outcomes": {
+              "148807": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 12.0,
+                    "priceAmerican": "1100",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40902742"
+                  },
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 13.0,
+                    "priceAmerican": "1200",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "49115876"
+                  }
+                }
+              }
+            }
+          },
+          "148575": {
+            "marketActive": true,
+            "outcomes": {
+              "148576": {
+                "players": {
+                  "2040599": {
+                    "active": true,
+                    "playerName": "Trautman, Adam",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40905244"
+                  }
+                }
+              },
+              "148575": {
+                "players": {
+                  "2040599": {
+                    "active": true,
+                    "playerName": "Trautman, Adam",
+                    "price": 1.88,
+                    "priceAmerican": "-114",
+                    "mainLine": false,
+                    "bookmakerOutcomeId": "40905237"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "prizepicks": {
+        "bookmakerIsActive": true,
+        "suspended": false,
+        "markets": {
+          "14398": {
+            "marketActive": true,
+            "outcomes": {
+              "14399": {
+                "players": {
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-16593718"
+                  },
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-41331177"
+                  }
+                }
+              },
+              "14398": {
+                "players": {
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-60317000"
+                  },
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-53089730"
+                  }
+                }
+              }
+            }
+          },
+          "148665": {
+            "marketActive": true,
+            "outcomes": {
+              "148665": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40877797"
+                  }
+                }
+              },
+              "148666": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40877798"
+                  }
+                }
+              }
+            }
+          },
+          "14418": {
+            "marketActive": true,
+            "outcomes": {
+              "14418": {
+                "players": {
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-61618946"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-87765854"
+                  },
+                  "2152156": {
+                    "active": true,
+                    "playerName": "Bryant, Pat",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-90629759"
+                  }
+                }
+              },
+              "14419": {
+                "players": {
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-48551004"
+                  }
+                }
+              }
+            }
+          },
+          "148637": {
+            "marketActive": true,
+            "outcomes": {
+              "148637": {
+                "players": {
+                  "1185936": {
+                    "active": true,
+                    "playerName": "Sutton, Courtland",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40905579"
+                  },
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-49115880"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40902736"
+                  }
+                }
+              }
+            }
+          },
+          "14416": {
+            "marketActive": true,
+            "outcomes": {
+              "14416": {
+                "players": {
+                  "1435193": {
+                    "active": true,
+                    "playerName": "Thornton, Tyquan",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-63518172"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-87765856"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-61437080"
+                  }
+                }
+              },
+              "14417": {
+                "players": {
+                  "1185936": {
+                    "active": true,
+                    "playerName": "Sutton, Courtland",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-16490005"
+                  },
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40877798"
+                  }
+                }
+              }
+            }
+          },
+          "148567": {
+            "marketActive": true,
+            "outcomes": {
+              "148567": {
+                "players": {
+                  "2152156": {
+                    "active": true,
+                    "playerName": "Bryant, Pat",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-90629753"
+                  },
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-87765807"
+                  },
+                  "2197934": {
+                    "active": true,
+                    "playerName": "Gray, Noah",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-73482243"
+                  }
+                }
+              }
+            }
+          },
+          "145926": {
+            "marketActive": true,
+            "outcomes": {
+              "145926": {
+                "players": {
+                  "1692489": {
+                    "active": true,
+                    "playerName": "Walker III, Kenneth",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-49413182"
+                  },
+                  "2040183": {
+                    "active": true,
+                    "playerName": "Dobbins, J.K.",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-48309549"
+                  }
+                }
+              }
+            }
+          },
+          "148631": {
+            "marketActive": true,
+            "outcomes": {
+              "148631": {
+                "players": {
+                  "2151630": {
+                    "active": true,
+                    "playerName": "Worthy, Xavier",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-41066840"
+                  }
+                }
+              },
+              "148632": {
+                "players": {
+                  "2151630": {
+                    "active": true,
+                    "playerName": "Worthy, Xavier",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-41066847"
+                  }
+                }
+              }
+            }
+          },
+          "148591": {
+            "marketActive": true,
+            "outcomes": {
+              "148591": {
+                "players": {
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-50744298"
+                  }
+                }
+              },
+              "148592": {
+                "players": {
+                  "1692343": {
+                    "active": true,
+                    "playerName": "Harvey, RJ",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-50744300"
+                  }
+                }
+              }
+            }
+          },
+          "145776": {
+            "marketActive": true,
+            "outcomes": {
+              "145776": {
+                "players": {
+                  "2040183": {
+                    "active": true,
+                    "playerName": "Dobbins, J.K.",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-48309547"
+                  },
+                  "1692885": {
+                    "active": true,
+                    "playerName": "Nix, Bo",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-48954420"
+                  },
+                  "1129537": {
+                    "active": true,
+                    "playerName": "Mahomes, Patrick",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-38245803"
+                  }
+                }
+              }
+            }
+          },
+          "148807": {
+            "marketActive": true,
+            "outcomes": {
+              "148807": {
+                "players": {
+                  "2197644": {
+                    "active": true,
+                    "playerName": "Waddle, Jaylen",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40902742"
+                  },
+                  "1699457": {
+                    "active": true,
+                    "playerName": "Rice, Rashee",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-49115876"
+                  }
+                }
+              }
+            }
+          },
+          "148575": {
+            "marketActive": true,
+            "outcomes": {
+              "148576": {
+                "players": {
+                  "2040599": {
+                    "active": true,
+                    "playerName": "Trautman, Adam",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40905244"
+                  }
+                }
+              },
+              "148575": {
+                "players": {
+                  "2040599": {
+                    "active": true,
+                    "playerName": "Trautman, Adam",
+                    "price": 1.91,
+                    "priceAmerican": "-110",
+                    "mainLine": true,
+                    "bookmakerOutcomeId": "pp-40905237"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "markets": [
+    {
+      "marketId": 14398,
+      "marketName": "Over Under Player TD Passes (incl. overtime)",
+      "handicap": 1.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 14399,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 14398,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 148665,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 53.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148666,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 148665,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 14418,
+      "marketName": "Over Under Player Receptions (incl. overtime)",
+      "handicap": 5.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 14419,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 14418,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 148637,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 39.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148638,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 148637,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 14416,
+      "marketName": "Over Under Player Receptions (incl. overtime)",
+      "handicap": 4.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 14417,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 14416,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 148567,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 4.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148567,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 148568,
+          "outcomeName": "Under"
+        }
+      ]
+    },
+    {
+      "marketId": 145926,
+      "marketName": "Over Under Rush Yards (incl. overtime)",
+      "handicap": 99.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 145927,
+          "outcomeName": "Under"
+        },
+        {
+          "outcomeId": 145926,
+          "outcomeName": "Over"
+        }
+      ]
+    },
+    {
+      "marketId": 148631,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 36.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148631,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 148632,
+          "outcomeName": "Under"
+        }
+      ]
+    },
+    {
+      "marketId": 148591,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 16.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148591,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 148592,
+          "outcomeName": "Under"
+        }
+      ]
+    },
+    {
+      "marketId": 145776,
+      "marketName": "Over Under Rush Yards (incl. overtime)",
+      "handicap": 24.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 145776,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 145777,
+          "outcomeName": "Under"
+        }
+      ]
+    },
+    {
+      "marketId": 148807,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 124.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148807,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 148808,
+          "outcomeName": "Under"
+        }
+      ]
+    },
+    {
+      "marketId": 148575,
+      "marketName": "Over Under Player Receiving Yards (incl. overtime)",
+      "handicap": 8.5,
+      "playerProp": true,
+      "outcomes": [
+        {
+          "outcomeId": 148575,
+          "outcomeName": "Over"
+        },
+        {
+          "outcomeId": 148576,
+          "outcomeName": "Under"
+        }
+      ]
+    }
+  ]
+}

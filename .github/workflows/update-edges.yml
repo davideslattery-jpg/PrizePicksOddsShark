@@ -26,8 +26,10 @@ jobs:
       - name: Install package
         run: pip install -e .
 
-      - name: Export edges (live or demo)
+      - name: Export edges (OddsPapi live or demo)
         env:
+          ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}
+          # Legacy optional fallback key (unused when OddsPapi secret is set)
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           set -euo pipefail
@@ -37,16 +39,24 @@ jobs:
           SPORTS="basketball_nba,americanfootball_nfl,americanfootball_ncaaf"
           MAX_EVENTS=2
           TEAM="Nebraska"
-          if [ -n "${ODDS_API_KEY:-}" ]; then
-            echo "ODDS_API_KEY present — free-tier live export (--sport ${SPORTS}, lean, team=${TEAM})"
-            if pp-odds --sport "$SPORTS" --lean --team "$TEAM" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
-              echo "Live export OK"
+          if [ -n "${ODDSPAPI_API_KEY:-}" ]; then
+            echo "ODDSPAPI_API_KEY present — OddsPapi lean export (--sport ${SPORTS}, team=${TEAM})"
+            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --team "$TEAM" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+              echo "Live OddsPapi export OK"
+            else
+              echo "Live export failed — falling back to --demo"
+              pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+            fi
+          elif [ -n "${ODDS_API_KEY:-}" ]; then
+            echo "ODDSPAPI_API_KEY missing; legacy ODDS_API_KEY present — The Odds API export"
+            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --team "$TEAM" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+              echo "Live legacy export OK"
             else
               echo "Live export failed — falling back to --demo"
               pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
             fi
           else
-            echo "ODDS_API_KEY missing — publishing demo board"
+            echo "No odds API secrets — publishing demo board"
             pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
           fi
           python - <<'PY2'
