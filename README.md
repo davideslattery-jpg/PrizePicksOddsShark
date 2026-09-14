@@ -1,6 +1,6 @@
 # PrizePicksOddsShark
 
-CLI that compares **PrizePicks** player props to a sportsbook (**FanDuel** by default) using **[OddsPapi](https://oddspapi.io/)** (primary), then ranks PrizePicks options by **edge** vs fair implied probability. Legacy [The Odds API](https://the-odds-api.com/) remains available via `--provider theoddsapi`.
+CLI that compares **PrizePicks** player props to a sportsbook (**FanDuel** by default) using **[The Odds API](https://the-odds-api.com/)** (primary, manual refresh), then ranks by **edge**. Sports: NBA, NFL, and **college football (NCAAF)**. OddsPapi remains an optional `--provider oddspapi`.
 
 > **Personal research only.** Respect PrizePicks / sportsbook Terms of Service and your local laws. This tool does not place bets, scrape sites, or guarantee profit. Odds data comes from OddsPapi / The Odds API (no scraping).
 
@@ -151,7 +151,7 @@ All tests run **offline** (no API key / no network).
 ### One-time setup
 
 1. **Enable Pages** — Settings → Pages → Deploy from `main` / `/docs`
-2. **Secret** — Actions secret `ODDSPAPI_API_KEY` (OddsPapi). Legacy `ODDS_API_KEY` optional.
+2. **Secret** — Actions secret `ODDS_API_KEY` (The Odds API). Optional: `ODDSPAPI_API_KEY`.
 3. **Manual refresh** — **Actions → Update edges board → Run workflow**
 
 **No scheduled runs.** The workflow commits `docs/data/edges.json` only when it changes (`[skip ci]`).

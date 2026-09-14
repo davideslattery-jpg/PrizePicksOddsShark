@@ -26,31 +26,29 @@ jobs:
       - name: Install package
         run: pip install -e .
 
-      - name: Export edges (OddsPapi live or demo)
+      - name: Export edges (The Odds API live or demo)
         env:
-          ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}
-          # Legacy optional fallback key (unused when OddsPapi secret is set)
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}
         run: |
           set -euo pipefail
           mkdir -p docs/data
           OUT="docs/data/edges.json"
-          # Free-tier mode: NFL + NBA + Nebraska NCAAF only, few events, lean markets
+          # Manual free-tier: NBA + NFL + full NCAAF (college football), lean markets
           SPORTS="basketball_nba,americanfootball_nfl,americanfootball_ncaaf"
           MAX_EVENTS=2
-          TEAM="Nebraska"
-          if [ -n "${ODDSPAPI_API_KEY:-}" ]; then
-            echo "ODDSPAPI_API_KEY present — OddsPapi lean export (--sport ${SPORTS}, team=${TEAM})"
-            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --team "$TEAM" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
-              echo "Live OddsPapi export OK"
+          if [ -n "${ODDS_API_KEY:-}" ]; then
+            echo "ODDS_API_KEY present — The Odds API lean export (--sport ${SPORTS}, no team filter)"
+            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+              echo "Live The Odds API export OK"
             else
               echo "Live export failed — falling back to --demo"
               pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
             fi
-          elif [ -n "${ODDS_API_KEY:-}" ]; then
-            echo "ODDSPAPI_API_KEY missing; legacy ODDS_API_KEY present — The Odds API export"
-            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --team "$TEAM" --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
-              echo "Live legacy export OK"
+          elif [ -n "${ODDSPAPI_API_KEY:-}" ]; then
+            echo "ODDS_API_KEY missing; OddsPapi fallback"
+            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+              echo "Live OddsPapi export OK"
             else
               echo "Live export failed — falling back to --demo"
               pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
