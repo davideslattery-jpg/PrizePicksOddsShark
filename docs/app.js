@@ -11,7 +11,7 @@
     errorBox: document.getElementById("errorBox"),
     emptyBox: document.getElementById("emptyBox"),
     dfsFilter: document.getElementById("dfsFilter"),
-    sportFilter: document.getElementById("sportFilter"),
+    sportFilters: document.getElementById("sportFilters"),
     minEdge: document.getElementById("minEdge"),
     refreshBtn: document.getElementById("refreshBtn"),
     staleBanner: document.getElementById("staleBanner"),
@@ -27,6 +27,17 @@
   let sortDir = -1;
   const selectedKeys = new Set();
   const DFS_STORAGE_KEY = "pp-odds-dfs-platform";
+  const SPORT_STORAGE_KEY = "pp-odds-sport-filters";
+
+  /** Full seasonal catalog (PGA omitted — Odds API outrights only, no player props). */
+  const SPORT_CATALOG = [
+    "americanfootball_nfl",
+    "americanfootball_ncaaf",
+    "basketball_nba",
+    "basketball_ncaab",
+    "baseball_mlb",
+    "icehockey_nhl",
+  ];
 
   const SPORT_LABELS = {
     basketball_nba: "NBA",
@@ -193,36 +204,95 @@
     return p === "underdog" ? "Underdog" : "PrizePicks";
   }
 
+  function loadSavedSportFilters() {
+    try {
+      const raw = localStorage.getItem(SPORT_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return null;
+      return parsed.filter((s) => typeof s === "string");
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function persistSportFilters(keys) {
+    try {
+      localStorage.setItem(SPORT_STORAGE_KEY, JSON.stringify(keys));
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function checkedSports() {
+    if (!els.sportFilters) return new Set();
+    const set = new Set();
+    els.sportFilters.querySelectorAll('input[type=checkbox][data-sport]').forEach((box) => {
+      if (box.checked) set.add(box.getAttribute("data-sport"));
+    });
+    return set;
+  }
+
   function populateSports(edges) {
-    const sports = [...new Set(edges.map((e) => e.sport).filter(Boolean))].sort();
-    const current = els.sportFilter.value || "all";
-    els.sportFilter.innerHTML = "";
-    const all = document.createElement("option");
-    all.value = "all";
-    all.textContent = "All";
-    els.sportFilter.appendChild(all);
+    if (!els.sportFilters) return;
+    const inData = [...new Set(edges.map((e) => e.sport).filter(Boolean))];
+    // Prefer sports present in data; fall back to full catalog if empty
+    const sports = (inData.length ? inData : SPORT_CATALOG).slice().sort((a, b) =>
+      prettySport(a).localeCompare(prettySport(b))
+    );
+    const saved = loadSavedSportFilters();
+    // Default: all sports that currently have edges (or all catalog if none)
+    const defaultOn = new Set(inData.length ? inData : sports);
+    const enabled = new Set(
+      saved && saved.length
+        ? saved.filter((s) => sports.includes(s))
+        : [...defaultOn]
+    );
+    // If saved filters exclude everything visible, re-default to all with data
+    if (![...enabled].some((s) => sports.includes(s))) {
+      sports.forEach((s) => enabled.add(s));
+    }
+
+    els.sportFilters.innerHTML = "";
     for (const s of sports) {
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = prettySport(s);
-      els.sportFilter.appendChild(opt);
+      const id = `sport-${s}`;
+      const label = document.createElement("label");
+      label.className = "sport-check";
+      label.htmlFor = id;
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = id;
+      input.setAttribute("data-sport", s);
+      input.checked = enabled.has(s);
+      const span = document.createElement("span");
+      span.textContent = prettySport(s);
+      label.appendChild(input);
+      label.appendChild(span);
+      els.sportFilters.appendChild(label);
     }
-    if ([...els.sportFilter.options].some((o) => o.value === current)) {
-      els.sportFilter.value = current;
-    }
+
+    els.sportFilters.querySelectorAll("input[type=checkbox][data-sport]").forEach((box) => {
+      box.addEventListener("change", () => {
+        persistSportFilters([...checkedSports()]);
+        render();
+      });
+    });
   }
 
   function filteredRows() {
     if (!board || !Array.isArray(board.edges)) return [];
-    const sport = els.sportFilter.value;
+    const sports = checkedSports();
     const platform = activePlatform();
     const minEdge = Number(els.minEdge.value);
     const floor = Number.isFinite(minEdge) ? minEdge : 0;
     let rows = board.edges.filter(
       (e) => Number(e.edge_pct) >= floor && edgePlatform(e) === platform
     );
-    if (sport && sport !== "all") {
-      rows = rows.filter((e) => e.sport === sport);
+    if (sports.size > 0) {
+      rows = rows.filter((e) => sports.has(e.sport));
+    } else {
+      // Nothing checked → show none (clear empty state)
+      rows = [];
     }
     rows = [...rows].sort((a, b) => {
       const av = a[sortKey];
@@ -346,9 +416,14 @@
   function selectedFairProbs() {
     if (!board) return [];
     const platform = activePlatform();
+    const sports = checkedSports();
     const byKey = new Map(
       (board.edges || [])
-        .filter((e) => edgePlatform(e) === platform)
+        .filter(
+          (e) =>
+            edgePlatform(e) === platform &&
+            (sports.size === 0 || sports.has(e.sport))
+        )
         .map((e) => [edgeKey(e), e])
     );
     const probs = [];
@@ -375,13 +450,24 @@
     }
     const platform = activePlatform();
     const platformEdges = (board.edges || []).filter((e) => edgePlatform(e) === platform);
-    populateSports(platformEdges);
+    const sportsInData = [...new Set((board.edges || []).map((e) => e.sport).filter(Boolean))].sort();
+    const existingBoxes = els.sportFilters
+      ? [...els.sportFilters.querySelectorAll("input[data-sport]")].map((b) => b.getAttribute("data-sport")).sort()
+      : [];
+    if (JSON.stringify(sportsInData) !== JSON.stringify(existingBoxes)) {
+      // Use all board edges for sport list (not just active platform) so filters stay stable
+      populateSports(board.edges || []);
+    }
 
     const rows = filteredRows();
-    const platformTotal = platformEdges.length;
+    const sportSet = checkedSports();
+    const platformSportEdges = platformEdges.filter(
+      (e) => sportSet.size === 0 || sportSet.has(e.sport)
+    );
     els.countLabel.textContent =
       `${rows.length} shown` +
-      ` / ${platformTotal} ${platformLabel(platform)}` +
+      ` / ${platformSportEdges.length} ${platformLabel(platform)}` +
+      (sportSet.size ? ` · ${sportSet.size} sport${sportSet.size === 1 ? "" : "s"}` : "") +
       (board.count != null ? ` (${board.count} all platforms)` : "");
     els.body.innerHTML = "";
 
@@ -394,8 +480,12 @@
       els.emptyBox.classList.remove("hidden");
       const strong = els.emptyBox.querySelector("strong");
       if (strong) {
+        const sportHint =
+          checkedSports().size === 0
+            ? " (no sports checked)"
+            : "";
         strong.textContent =
-          `No edges above the filter for ${platformLabel(platform)} ` +
+          `No edges above the filter for ${platformLabel(platform)}${sportHint} ` +
           `(or no overlapping ${platformLabel(platform)} + FanDuel props).`;
       }
       return;
@@ -490,7 +580,7 @@
       render();
     });
   }
-  els.sportFilter.addEventListener("change", render);
+  // Sport checkboxes bind in populateSports()
   els.minEdge.addEventListener("input", render);
 
   // Auto-rank pasted probs on load when the field already has 2–6 values

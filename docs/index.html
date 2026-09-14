@@ -22,12 +22,12 @@
             <option value="underdog">Underdog</option>
           </select>
         </label>
-        <label class="field">
-          Sport
-          <select id="sportFilter" aria-label="Filter by sport">
-            <option value="all">All</option>
-          </select>
-        </label>
+        <fieldset class="field sport-filters" id="sportFilterField">
+          <legend>Sports</legend>
+          <div id="sportFilters" class="sport-checkboxes" role="group" aria-label="Filter by sport">
+            <!-- populated from board data -->
+          </div>
+        </fieldset>
         <label class="field">
           Min edge %
           <input id="minEdge" type="number" min="0" step="0.5" value="2" />
@@ -39,21 +39,21 @@
     <div id="staleBanner" class="stale hidden" role="status">
       Board data looks stale (older than ~2 hours). Try
       <strong>Actions → Update edges board → Run workflow</strong>
-      on GitHub, then Refresh.
+      (or wait for the Thu football cron), then Refresh.
     </div>
 
     <section class="status" id="statusBar" aria-live="polite">
       <span id="updatedAt">Loading…</span>
       <span id="modeBadge" class="badge"></span>
       <span id="countLabel"></span>
-      <span id="reloadHint" class="dim">Page auto-reloads JSON · data refresh is manual on GitHub</span>
+      <span id="reloadHint" class="dim">Page auto-reloads JSON · weekly Thu cron + manual Actions refresh</span>
     </section>
 
     <div id="errorBox" class="error hidden" role="alert"></div>
     <div id="emptyBox" class="empty hidden">
       <p><strong>No edges above the filter for this platform (or no overlapping DFS + FanDuel props).</strong></p>
       <p>If The Odds API free credits are exhausted, refreshes stay empty until the quota resets. Slip advisor below still works with pasted probs + <em>Rank slips</em>.</p>
-      <p class="dim">Manual refresh: GitHub → Actions → Update edges board → Run workflow.</p>
+      <p class="dim">Refresh: GitHub → Actions → Update edges board (Thu cron or Run workflow with sport checkboxes).</p>
     </div>
 
     <div class="table-wrap">
@@ -115,11 +115,10 @@
     <footer class="foot">
       <p>
         Live odds via <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>
-        (manual refresh · NBA + NFL + NCAAF · PrizePicks + Underdog in one pull).
-        Board <strong>Platform</strong> toggle is client-side only — does not burn extra API credits.
+        (weekly Thu football cron + manual sport checkboxes · PrizePicks + Underdog in one pull).
+        Board <strong>Platform</strong> / <strong>Sports</strong> filters are client-side only — do not burn API credits.
         OddsPapi is an optional fallback. Not affiliated with PrizePicks, Underdog, or FanDuel.
-        Data refresh is <strong>manual only</strong>
-        (GitHub Actions → Update edges board → Run workflow). Free API quota applies.
+        Refresh: GitHub Actions → Update edges board (scheduled Thu 8am PT for NFL+NCAAF, or Run workflow). Free API quota applies.
         Bookmark:
         <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>
       </p>
