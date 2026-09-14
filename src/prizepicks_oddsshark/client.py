@@ -135,15 +135,21 @@ class OddsClient:
         max_events: int = 8,
         include_alternates: bool = True,
         team: str | None = None,
+        dfs: str | list[str] | None = "both",
     ) -> list[dict[str, Any]]:
-        """List events, then pull FanDuel + PrizePicks props per event.
+        """List events, then pull FanDuel + DFS (PrizePicks / Underdog) props per event.
 
-        Regions: `us` (or `eu` for pinnacle) + `us_dfs` for PrizePicks.
-        Bookmakers filter keeps quota focused.
+        Regions: `us` (or `eu` for pinnacle) + `us_dfs` for DFS books.
+        Bookmakers are requested together in ONE event-odds call
+        (e.g. `fanduel,prizepicks,underdog`) so toggling platforms on the board
+        never requires a second API pull / credit burn.
         Set include_alternates=False for free-tier / lean runs (skips demon/goblin alts).
         Optional team substring filters to events whose home/away team matches
         (e.g. "Nebraska" for Cornhuskers NCAAF) before spending prop credits.
         """
+        from prizepicks_oddsshark.ranker import parse_dfs_arg
+
+        dfs_keys = parse_dfs_arg(dfs)
         events = self.list_events(sport)
         if team:
             needle = team.strip().lower()
@@ -156,7 +162,7 @@ class OddsClient:
         if self.demo:
             return [self.event_odds(sport, "demo", regions="us,us_dfs", markets=",".join(markets))]
 
-        # Include alternate markets for PrizePicks demons/goblins (unless lean)
+        # Include alternate markets for PrizePicks demons/goblins / Underdog non-x1 (unless lean)
         market_keys: list[str] = []
         for m in markets:
             market_keys.append(m)
@@ -166,12 +172,13 @@ class OddsClient:
                     market_keys.append(alt)
         markets_param = ",".join(market_keys)
 
+        dfs_part = ",".join(dfs_keys)
         if book == "pinnacle":
             regions = "eu,us_dfs"
-            books = "pinnacle,prizepicks"
+            books = f"pinnacle,{dfs_part}"
         else:
             regions = "us,us_dfs"
-            books = f"{book},prizepicks"
+            books = f"{book},{dfs_part}"
 
         out: list[dict[str, Any]] = []
         for ev in events[:max_events]:

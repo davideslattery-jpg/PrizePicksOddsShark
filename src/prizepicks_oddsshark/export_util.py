@@ -29,11 +29,12 @@ BOARD_EDGE_KEYS = (
     "event_id",
     "adjusted",
     "pp_price",
+    "platform",
 )
 
 
 def edge_to_board_row(row: RankedEdge, *, sport: str | None = None) -> dict[str, Any]:
-    """Serialize a ranked edge for the web board (includes game + sport)."""
+    """Serialize a ranked edge for the web board (includes game + sport + platform)."""
     return {
         "player": row.player,
         "market": row.market,
@@ -52,6 +53,7 @@ def edge_to_board_row(row: RankedEdge, *, sport: str | None = None) -> dict[str,
         "event_id": row.event_id,
         "adjusted": row.adjusted,
         "pp_price": row.pp_price,
+        "platform": row.platform or "prizepicks",
     }
 
 
@@ -62,6 +64,7 @@ def build_board(
     book: str = "fanduel",
     demo: bool = False,
     sports: list[str] | None = None,
+    dfs_platforms: list[str] | None = None,
     updated_at: str | None = None,
 ) -> dict[str, Any]:
     """Build the edges.json envelope consumed by docs/index.html."""
@@ -76,6 +79,20 @@ def build_board(
                 seen.add(s)
                 from_rows.append(s)
         sport_list = from_rows or ([sport] if sport else [])
+
+    if dfs_platforms is not None:
+        platforms = list(dfs_platforms)
+    else:
+        platforms = []
+        seen_p: set[str] = set()
+        for r in rows:
+            p = (r.platform or "prizepicks").lower()
+            if p and p not in seen_p:
+                seen_p.add(p)
+                platforms.append(p)
+        if not platforms:
+            platforms = ["prizepicks"]
+
     return {
         "updated_at": updated_at
         or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -83,6 +100,7 @@ def build_board(
         "mode": "demo" if demo else "live",
         "book": book,
         "sports": sport_list,
+        "dfs_platforms": platforms,
         "count": len(rows),
         "edges": [edge_to_board_row(r, sport=sport) for r in rows],
     }
@@ -92,6 +110,7 @@ def merge_boards(*boards: dict[str, Any]) -> dict[str, Any]:
     """Merge multiple board payloads (e.g. NBA + NFL) into one ranked board."""
     edges: list[dict[str, Any]] = []
     sports: list[str] = []
+    platforms: list[str] = []
     book = "fanduel"
     mode = "live"
     for board in boards:
@@ -101,7 +120,18 @@ def merge_boards(*boards: dict[str, Any]) -> dict[str, Any]:
         for s in board.get("sports") or []:
             if s not in sports:
                 sports.append(s)
+        for p in board.get("dfs_platforms") or []:
+            if p not in platforms:
+                platforms.append(p)
         edges.extend(board.get("edges") or [])
+    # Infer platforms from edges if missing
+    if not platforms:
+        for e in edges:
+            p = (e.get("platform") or "prizepicks").lower()
+            if p not in platforms:
+                platforms.append(p)
+        if not platforms:
+            platforms = ["prizepicks"]
     edges.sort(key=lambda e: float(e.get("edge_pct") or 0), reverse=True)
     return {
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -109,6 +139,7 @@ def merge_boards(*boards: dict[str, Any]) -> dict[str, Any]:
         "mode": mode,
         "book": book,
         "sports": sports,
+        "dfs_platforms": platforms,
         "count": len(edges),
         "edges": edges,
     }
@@ -122,13 +153,21 @@ def export_rows(
     book: str = "fanduel",
     demo: bool = False,
     sports: list[str] | None = None,
+    dfs_platforms: list[str] | None = None,
 ) -> Path:
     """Write ranked edges to .csv (flat) or .json (board envelope for the web UI)."""
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     suffix = out.suffix.lower()
     if suffix == ".json":
-        board = build_board(rows, sport=sport, book=book, demo=demo, sports=sports)
+        board = build_board(
+            rows,
+            sport=sport,
+            book=book,
+            demo=demo,
+            sports=sports,
+            dfs_platforms=dfs_platforms,
+        )
         out.write_text(json.dumps(board, indent=2) + "\n", encoding="utf-8")
     elif suffix == ".csv":
         data = [r.to_dict() for r in rows]

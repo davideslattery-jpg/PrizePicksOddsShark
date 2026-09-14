@@ -53,6 +53,9 @@ def test_demo_export_board_shape(tmp_path: Path):
     assert edge["game"]
     assert edge["sport"] == "basketball_nba"
     assert set(BOARD_EDGE_KEYS).issubset(edge.keys())
+    assert edge.get("platform") == "prizepicks"
+    assert "dfs_platforms" in board
+    assert "prizepicks" in board["dfs_platforms"]
 
 
 def test_build_board_empty():

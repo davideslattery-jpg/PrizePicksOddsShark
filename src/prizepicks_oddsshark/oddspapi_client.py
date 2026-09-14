@@ -1,7 +1,7 @@
 """OddsPapi (api.oddspapi.io) client — maps responses into The Odds API event shape.
 
 Auth: apiKey query param. Free-tier friendly: disk cache, tournament filters,
-only prizepicks+fanduel bookmakers, request pacing.
+prizepicks/underdog + fanduel bookmakers, request pacing.
 """
 
 from __future__ import annotations
@@ -475,23 +475,28 @@ class OddsPapiClient:
         max_events: int = 8,
         include_alternates: bool = True,  # noqa: ARG002 — OddsPapi has no *_alternate keys
         team: str | None = None,
+        dfs: str | list[str] | None = "both",
     ) -> list[dict[str, Any]]:
-        """List fixtures then pull prizepicks+book odds, mapped to Odds API event shape."""
+        """List fixtures then pull DFS+book odds, mapped to Odds API event shape."""
+        from prizepicks_oddsshark.ranker import parse_dfs_arg
+
         void = include_alternates  # retained for OddsClient interface parity
         del void
 
         if sport not in SPORT_CONFIG and not self.demo:
             return []
 
-        books = f"prizepicks,{book}" if book != "prizepicks" else "prizepicks,fanduel"
-        # Discover fixtures by fair-book hasOdds (PrizePicks coverage is often sparse)
+        dfs_keys = parse_dfs_arg(dfs)
+        # Discover fixtures by fair-book hasOdds (DFS coverage is often sparse)
         fixtures = self.list_fixtures(sport, team=team, bookmakers=book)
+        book_list = list(dict.fromkeys([*dfs_keys, book if book != "prizepicks" else "fanduel"]))
+        books = ",".join(book_list)
         if self.demo:
             odds = self.fixture_odds("demo", bookmakers=books)
             self._ensure_markets()
             return [
                 self.odds_to_event(
-                    odds, sport=sport, market_filter=markets, bookmakers=["prizepicks", book]
+                    odds, sport=sport, market_filter=markets, bookmakers=book_list
                 )
             ]
 
@@ -518,7 +523,7 @@ class OddsPapiClient:
                 if not odds.get(k) and fx.get(k) is not None:
                     odds[k] = fx[k]
             event = self.odds_to_event(
-                odds, sport=sport, market_filter=markets, bookmakers=["prizepicks", book]
+                odds, sport=sport, market_filter=markets, bookmakers=book_list
             )
             if event.get("bookmakers"):
                 out.append(event)

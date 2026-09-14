@@ -10,6 +10,7 @@
     countLabel: document.getElementById("countLabel"),
     errorBox: document.getElementById("errorBox"),
     emptyBox: document.getElementById("emptyBox"),
+    dfsFilter: document.getElementById("dfsFilter"),
     sportFilter: document.getElementById("sportFilter"),
     minEdge: document.getElementById("minEdge"),
     refreshBtn: document.getElementById("refreshBtn"),
@@ -25,6 +26,7 @@
   let sortKey = "edge_pct";
   let sortDir = -1;
   const selectedKeys = new Set();
+  const DFS_STORAGE_KEY = "pp-odds-dfs-platform";
 
   const SPORT_LABELS = {
     basketball_nba: "NBA",
@@ -103,7 +105,7 @@
   }
 
   function edgeKey(r) {
-    return [r.event_id, r.player, r.market, r.side, r.pp_line, r.tier].join("|");
+    return [r.platform || "prizepicks", r.event_id, r.player, r.market, r.side, r.pp_line, r.tier].join("|");
   }
 
   function localTime(iso) {
@@ -156,6 +158,41 @@
     els.errorBox.textContent = "";
   }
 
+
+  function activePlatform() {
+    const v = (els.dfsFilter && els.dfsFilter.value) || "prizepicks";
+    return v === "underdog" ? "underdog" : "prizepicks";
+  }
+
+  function edgePlatform(e) {
+    return (e && e.platform) || "prizepicks";
+  }
+
+  function loadSavedPlatform() {
+    if (!els.dfsFilter) return;
+    try {
+      const saved = localStorage.getItem(DFS_STORAGE_KEY);
+      if (saved === "prizepicks" || saved === "underdog") {
+        els.dfsFilter.value = saved;
+      }
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function persistPlatform() {
+    if (!els.dfsFilter) return;
+    try {
+      localStorage.setItem(DFS_STORAGE_KEY, activePlatform());
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function platformLabel(p) {
+    return p === "underdog" ? "Underdog" : "PrizePicks";
+  }
+
   function populateSports(edges) {
     const sports = [...new Set(edges.map((e) => e.sport).filter(Boolean))].sort();
     const current = els.sportFilter.value || "all";
@@ -178,9 +215,12 @@
   function filteredRows() {
     if (!board || !Array.isArray(board.edges)) return [];
     const sport = els.sportFilter.value;
+    const platform = activePlatform();
     const minEdge = Number(els.minEdge.value);
     const floor = Number.isFinite(minEdge) ? minEdge : 0;
-    let rows = board.edges.filter((e) => Number(e.edge_pct) >= floor);
+    let rows = board.edges.filter(
+      (e) => Number(e.edge_pct) >= floor && edgePlatform(e) === platform
+    );
     if (sport && sport !== "all") {
       rows = rows.filter((e) => e.sport === sport);
     }
@@ -305,7 +345,12 @@
 
   function selectedFairProbs() {
     if (!board) return [];
-    const byKey = new Map((board.edges || []).map((e) => [edgeKey(e), e]));
+    const platform = activePlatform();
+    const byKey = new Map(
+      (board.edges || [])
+        .filter((e) => edgePlatform(e) === platform)
+        .map((e) => [edgeKey(e), e])
+    );
     const probs = [];
     for (const k of selectedKeys) {
       const e = byKey.get(k);
@@ -328,14 +373,31 @@
       if (isStale(board.updated_at)) els.staleBanner.classList.remove("hidden");
       else els.staleBanner.classList.add("hidden");
     }
-    populateSports(board.edges || []);
+    const platform = activePlatform();
+    const platformEdges = (board.edges || []).filter((e) => edgePlatform(e) === platform);
+    populateSports(platformEdges);
 
     const rows = filteredRows();
-    els.countLabel.textContent = `${rows.length} shown` + (board.count != null ? ` / ${board.count} total` : "");
+    const platformTotal = platformEdges.length;
+    els.countLabel.textContent =
+      `${rows.length} shown` +
+      ` / ${platformTotal} ${platformLabel(platform)}` +
+      (board.count != null ? ` (${board.count} all platforms)` : "");
     els.body.innerHTML = "";
+
+    const dfsProbHdr = document.getElementById("dfsProbHeader");
+    if (dfsProbHdr) {
+      dfsProbHdr.textContent = platform === "underdog" ? "UD prob" : "PP prob";
+    }
 
     if (!rows.length) {
       els.emptyBox.classList.remove("hidden");
+      const strong = els.emptyBox.querySelector("strong");
+      if (strong) {
+        strong.textContent =
+          `No edges above the filter for ${platformLabel(platform)} ` +
+          `(or no overlapping ${platformLabel(platform)} + FanDuel props).`;
+      }
       return;
     }
     els.emptyBox.classList.add("hidden");
@@ -359,8 +421,8 @@
         <td class="num">${fmtLine(r.book_line)}</td>
         <td class="num">${fmtSignedLine(r.line_diff)}</td>
         <td class="num" title="Book probability of this outcome">${fmtPct(r.fair_prob)}</td>
-        <td class="num" title="PrizePicks implied / proxy probability">${fmtPct(r.offered_prob)}</td>
-        <td class="num ${probClass}" title="Book prob − PP prob">${fmtSignedPctPoints(r.prob_delta)}</td>
+        <td class="num" title="DFS implied / proxy probability">${fmtPct(r.offered_prob)}</td>
+        <td class="num ${probClass}" title="Book prob − DFS prob">${fmtSignedPctPoints(r.prob_delta)}</td>
         <td>${escapeHtml(r.game || r.matchup || "")}</td>
         <td>${escapeHtml(prettySport(r.sport))}</td>
       `;
@@ -419,7 +481,15 @@
     }
   }
 
+  loadSavedPlatform();
   els.refreshBtn.addEventListener("click", () => loadData({ manual: true }));
+  if (els.dfsFilter) {
+    els.dfsFilter.addEventListener("change", () => {
+      selectedKeys.clear();
+      persistPlatform();
+      render();
+    });
+  }
   els.sportFilter.addEventListener("change", render);
   els.minEdge.addEventListener("input", render);
 
@@ -442,7 +512,7 @@
       const probs = selectedFairProbs();
       if (probs.length < 2) {
         if (els.slipStatus) {
-          els.slipStatus.textContent = "Select 2–6 rows (checkbox) with book probs first.";
+          els.slipStatus.textContent = `Select 2–6 ${platformLabel(activePlatform())} rows (checkbox) with book probs first.`;
         }
         return;
       }

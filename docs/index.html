@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PrizePicksOddsShark — Edges Board</title>
-  <meta name="description" content="Ranked PrizePicks vs FanDuel edges (personal research)." />
+  <meta name="description" content="Ranked PrizePicks / Underdog vs FanDuel edges (personal research)." />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,9 +12,16 @@
     <header class="top">
       <div>
         <h1>PrizePicksOddsShark</h1>
-        <p class="sub">Ranked PrizePicks edges vs FanDuel fair odds · multi-sport · personal research only</p>
+        <p class="sub">Ranked PrizePicks / Underdog edges vs FanDuel fair odds · multi-sport · personal research only</p>
       </div>
       <div class="controls">
+        <label class="field">
+          Platform
+          <select id="dfsFilter" aria-label="Filter by DFS platform">
+            <option value="prizepicks" selected>PrizePicks</option>
+            <option value="underdog">Underdog</option>
+          </select>
+        </label>
         <label class="field">
           Sport
           <select id="sportFilter" aria-label="Filter by sport">
@@ -44,7 +51,7 @@
 
     <div id="errorBox" class="error hidden" role="alert"></div>
     <div id="emptyBox" class="empty hidden">
-      <p><strong>No edges above the filter (or no overlapping PrizePicks + FanDuel props).</strong></p>
+      <p><strong>No edges above the filter for this platform (or no overlapping DFS + FanDuel props).</strong></p>
       <p>If The Odds API free credits are exhausted, refreshes stay empty until the quota resets. Slip advisor below still works with pasted probs + <em>Rank slips</em>.</p>
       <p class="dim">Manual refresh: GitHub → Actions → Update edges board → Run workflow.</p>
     </div>
@@ -59,12 +66,12 @@
             <th data-sort="market">Market</th>
             <th data-sort="side">Side</th>
             <th data-sort="tier">Tier</th>
-            <th data-sort="pp_line" title="PrizePicks line">PP line</th>
+            <th data-sort="pp_line" title="DFS platform line">DFS line</th>
             <th data-sort="book_line" title="FanDuel (book) line">Book line</th>
             <th data-sort="line_diff" title="PP line minus book line">Line Δ</th>
             <th data-sort="fair_prob" title="Book no-vig probability this side hits">Book prob</th>
-            <th data-sort="offered_prob" title="Implied / proxy probability from PrizePicks pricing">PP prob</th>
-            <th data-sort="prob_delta" title="Book prob minus PP prob (same as Edge% / 100)">Prob Δ</th>
+            <th data-sort="offered_prob" id="dfsProbHeader" title="Implied / proxy probability from DFS pricing">DFS prob</th>
+            <th data-sort="prob_delta" title="Book prob minus DFS prob (same as Edge% / 100)">Prob Δ</th>
             <th data-sort="game">Game</th>
             <th data-sort="sport">Sport</th>
           </tr>
@@ -108,8 +115,10 @@
     <footer class="foot">
       <p>
         Live odds via <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>
-        (manual refresh · NBA + NFL + NCAAF). OddsPapi/SharpAPI are optional fallbacks.
-        Not affiliated with PrizePicks or FanDuel. Data refresh is <strong>manual only</strong>
+        (manual refresh · NBA + NFL + NCAAF · PrizePicks + Underdog in one pull).
+        Board <strong>Platform</strong> toggle is client-side only — does not burn extra API credits.
+        OddsPapi is an optional fallback. Not affiliated with PrizePicks, Underdog, or FanDuel.
+        Data refresh is <strong>manual only</strong>
         (GitHub Actions → Update edges board → Run workflow). Free API quota applies.
         Bookmark:
         <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>

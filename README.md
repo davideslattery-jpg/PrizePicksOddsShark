@@ -1,12 +1,13 @@
 # PrizePicksOddsShark
 
-CLI that compares **PrizePicks** player props to a sportsbook (**FanDuel** by default) using **[The Odds API](https://the-odds-api.com/)** (primary, manual refresh), then ranks by **edge**. Sports: NBA, NFL, and **college football (NCAAF)**. OddsPapi remains an optional `--provider oddspapi`.
+CLI that compares **PrizePicks** and **Underdog Fantasy** player props to a sportsbook (**FanDuel** by default) using **[The Odds API](https://the-odds-api.com/)** (primary, manual refresh), then ranks by **edge**. Sports: NBA, NFL, and **college football (NCAAF)**. OddsPapi remains an optional `--provider oddspapi`.
 
 > **Personal research only.** Respect PrizePicks / sportsbook Terms of Service and your local laws. This tool does not place bets, scrape sites, or guarantee profit. Odds data comes from OddsPapi / The Odds API (no scraping).
 
 ## Features
 
-- **OddsPapi** live provider: tournaments → fixtures → odds (`prizepicks` + `fanduel`), mapped into the internal event/prop shape used by the ranker
+- **PrizePicks + Underdog** in one Odds API pull (`regions=us,us_dfs`, `bookmakers=fanduel,prizepicks,underdog`) — board toggle is client-side and does **not** double credits
+- **OddsPapi** live provider: tournaments → fixtures → odds (DFS + `fanduel`), mapped into the internal event/prop shape used by the ranker
 - Fair odds from FanDuel (or Pinnacle on legacy provider)
 - American → implied, multiplicative two-way de-vig, optional line-mismatch adjustment
 - Rank by edge % with `--min-edge` (default **2%**)
@@ -39,13 +40,13 @@ Optional legacy: set `ODDS_API_KEY` and pass `--provider theoddsapi`.
 OddsPapi free tier is limited (~250 req/mo). This CLI:
 
 - Filters to needed tournaments (NBA / NFL / NCAAF)
-- Requests only `prizepicks,fanduel`
+- Requests `fanduel,prizepicks,underdog` together (same `us_dfs` region — not 2× credits for both DFS books)
 - Caps `--max-events` per sport
 - Disk-caches fixtures/odds (~8 min) and the markets catalog (days)
 
 Use `--lean` and keep refreshes **manual**. Watch the printed request counter after live runs.
 
-**Free-tier board mode (GitHub Action):** NBA + NFL + Nebraska NCAAF, `--lean`, `--max-events 2`, **workflow_dispatch only** (no schedule).
+**Free-tier board mode (GitHub Action):** NBA + NFL + NCAAF (no team filter), `--lean`, `--max-events 2`, `--dfs both`, **workflow_dispatch only** (no schedule).
 
 ## Usage
 
@@ -63,8 +64,10 @@ pp-odds --provider auto --sport americanfootball_nfl --lean --max-events 2
 # Legacy The Odds API
 pp-odds --provider theoddsapi --sport basketball_nba
 
-# Export board JSON
-pp-odds --demo --export docs/data/edges.json
+# Export board JSON (demo = PrizePicks fixtures; live default --dfs both)
+pp-odds --demo --dfs prizepicks --export docs/data/edges.json
+pp-odds --provider theoddsapi --sport basketball_nba,americanfootball_nfl,americanfootball_ncaaf \
+  --lean --max-events 2 --dfs both --export docs/data/edges.json
 ```
 
 Also: `python -m prizepicks_oddsshark --demo`
@@ -78,7 +81,7 @@ pp-odds slip --probs 0.55,0.58,0.52
 pp-odds slip --from-board docs/data/edges.json --top 4
 ```
 
-On the Pages board: check 2–6 rows (or paste probs) → **Rank slips**. Highest EV is highlighted.
+On the Pages board: use the **Platform** toggle (PrizePicks | Underdog, persisted in localStorage), check 2–6 rows from the active platform (or paste probs) → **Rank slips**. Highest EV is highlighted. Toggling platforms does not re-fetch odds or spend credits.
 
 **Independence assumption:** correlated teammates/games are not modeled. Research only.
 
@@ -96,6 +99,7 @@ On the Pages board: check 2–6 rows (or paste probs) → **Rank slips**. Highes
 | `--max-events` | `6` | Cap live event fetches **per sport** |
 | `--lean` | off | Fewer markets; skip PP alternates (legacy) |
 | `--team` | — | College team substring filter (e.g. Nebraska) |
+| `--dfs` | `both` | `prizepicks`, `underdog`, or `both` (one API pull) |
 | `--version` | — | Print version |
 
 ## Ranking explanation
@@ -160,13 +164,13 @@ All tests run **offline** (no API key / no network).
 
 ```bash
 pp-odds --demo --export docs/data/edges.json
-pp-odds --provider oddspapi --sport basketball_nba,americanfootball_nfl,americanfootball_ncaaf \
-  --lean --team Nebraska --max-events 2 --export docs/data/edges.json
+pp-odds --provider theoddsapi --sport basketball_nba,americanfootball_nfl,americanfootball_ncaaf \
+  --lean --max-events 2 --dfs both --export docs/data/edges.json
 ```
 
-## Nebraska Cornhuskers
+## College football (NCAAF)
 
-Free-tier board includes NCAAF filtered to **Nebraska** only (`--team Nebraska`).
+Free-tier board includes **full NCAAF** (no Nebraska-only filter). Optional CLI `--team Nebraska` still works for local college-only pulls.
 
 ## Limitations / quirks
 

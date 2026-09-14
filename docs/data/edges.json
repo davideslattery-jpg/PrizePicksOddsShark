@@ -9,5 +9,9 @@
     "americanfootball_ncaaf"
   ],
   "count": 0,
-  "edges": []
+  "edges": [],
+  "dfs_platforms": [
+    "prizepicks",
+    "underdog"
+  ]
 }

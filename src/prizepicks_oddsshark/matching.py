@@ -244,11 +244,14 @@ def is_alternate_market(market_key: str) -> bool:
     return (market_key or "").lower().endswith("_alternate")
 
 
-def classify_prizepicks_tier(market_key: str, price: float | int | None) -> Tier:
-    """Classify PrizePicks outcome tier from market + American price.
+DFS_BOOKMAKERS = frozenset({"prizepicks", "underdog"})
 
-    Per The Odds API: demons/goblins live in `_alternate` markets;
-    demons ≈ +100, goblins ≈ default odds. Main markets ≈ standard lines.
+
+def classify_prizepicks_tier(market_key: str, price: float | int | None) -> Tier:
+    """Classify DFS (PrizePicks / Underdog) tier from market + American price.
+
+    Per The Odds API: non-default multipliers live in `_alternate` markets;
+    PrizePicks demons ≈ +100, goblins ≈ default odds. Main markets ≈ standard.
     """
     if not is_alternate_market(market_key):
         return "standard"
@@ -272,7 +275,7 @@ class PropLeg:
     side: str  # Over / Under
     point: float
     price: float | None
-    tier: Tier | None = None  # only for prizepicks
+    tier: Tier | None = None  # prizepicks / underdog DFS
 
 
 def extract_props_from_event(
@@ -314,7 +317,7 @@ def extract_props_from_event(
                     continue
                 price = outcome.get("price")
                 tier: Tier | None = None
-                if bkey == "prizepicks":
+                if bkey in DFS_BOOKMAKERS:
                     tier = classify_prizepicks_tier(mkey, price)
                 legs.append(
                     PropLeg(

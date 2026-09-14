@@ -22,6 +22,7 @@ class PropEventsProvider(Protocol):
         max_events: int = 8,
         include_alternates: bool = True,
         team: str | None = None,
+        dfs: str | list[str] | None = "both",
     ) -> list[dict[str, Any]]: ...
 
 

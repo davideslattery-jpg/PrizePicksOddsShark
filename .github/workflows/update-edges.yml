@@ -39,23 +39,23 @@ jobs:
           MAX_EVENTS=2
           if [ -n "${ODDS_API_KEY:-}" ]; then
             echo "ODDS_API_KEY present — The Odds API lean export (--sport ${SPORTS}, no team filter)"
-            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --dfs both --export "$OUT"; then
               echo "Live The Odds API export OK"
             else
               echo "Live export failed — falling back to --demo"
-              pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+              pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
             fi
           elif [ -n "${ODDSPAPI_API_KEY:-}" ]; then
             echo "ODDS_API_KEY missing; OddsPapi fallback"
-            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --export "$OUT"; then
+            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --dfs both --export "$OUT"; then
               echo "Live OddsPapi export OK"
             else
               echo "Live export failed — falling back to --demo"
-              pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+              pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
             fi
           else
             echo "No odds API secrets — publishing demo board"
-            pp-odds --demo --sport basketball_nba --min-edge 2 --export "$OUT"
+            pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
           fi
           python - <<'PY2'
           import json
@@ -65,9 +65,11 @@ jobs:
           data = json.loads(p.read_text(encoding="utf-8"))
           assert "edges" in data and "updated_at" in data
           counts = Counter(e.get("sport") or "?" for e in data.get("edges") or [])
+          plat = Counter(e.get("platform") or "prizepicks" for e in data.get("edges") or [])
           print(
               f"board mode={data.get('mode')} count={data.get('count')} "
-              f"sports={data.get('sports')} per_sport={dict(counts)} "
+              f"sports={data.get('sports')} dfs_platforms={data.get('dfs_platforms')} "
+              f"per_sport={dict(counts)} per_dfs={dict(plat)} "
               f"updated_at={data.get('updated_at')}"
           )
           PY2

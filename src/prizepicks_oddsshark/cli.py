@@ -23,7 +23,7 @@ from prizepicks_oddsshark.matching import (
 )
 from prizepicks_oddsshark.oddspapi_client import OddsPapiError
 from prizepicks_oddsshark.providers import make_client, resolve_provider
-from prizepicks_oddsshark.ranker import RankedEdge, rank_edges
+from prizepicks_oddsshark.ranker import RankedEdge, parse_dfs_arg, rank_edges
 from prizepicks_oddsshark.slip_optimizer import (
     probs_from_board_edges,
     rank_slip_types,
@@ -32,13 +32,15 @@ from prizepicks_oddsshark.slip_optimizer import (
 app = typer.Typer(
     name="pp-odds",
     help=(
-        "Compare PrizePicks props to FanDuel via OddsPapi (default) "
-        "or legacy The Odds API; rank by edge. Also: slip EV advisor."
+        "Compare PrizePicks / Underdog Fantasy props to FanDuel via OddsPapi "
+        "(default) or The Odds API; rank by edge. Also: slip EV advisor."
     ),
     add_completion=False,
     invoke_without_command=True,
 )
 console = Console()
+
+_DFS_SHORT = {"prizepicks": "PP", "underdog": "UD"}
 
 
 def _fetch_sport_edges(
@@ -52,9 +54,11 @@ def _fetch_sport_edges(
     demo: bool,
     lean: bool = False,
     team: str | None = None,
+    dfs_platforms: list[str] | None = None,
 ) -> list[RankedEdge]:
     """Fetch + rank one sport. Returns [] on soft failures (no events / API error)."""
     market_list = markets_override or default_markets_for_sport(sport, lean=lean)
+    platforms = dfs_platforms or ["prizepicks"]
 
     if demo and sport != "basketball_nba":
         console.print(
@@ -71,6 +75,7 @@ def _fetch_sport_edges(
             max_events=max_events,
             include_alternates=not lean,
             team=team_q,
+            dfs=platforms,
         )
     except (OddsAPIError, OddsPapiError) as exc:
         console.print(f"[yellow]Warning: {sport} fetch failed — {exc}[/yellow]")
@@ -84,14 +89,19 @@ def _fetch_sport_edges(
         return []
 
     rows = rank_edges(
-        events, book=book, markets=market_list, min_edge=min_edge, sport=sport
+        events,
+        book=book,
+        markets=market_list,
+        min_edge=min_edge,
+        sport=sport,
+        dfs_platforms=platforms,
     )
     for r in rows:
         if not r.sport:
             r.sport = sport
     console.print(
         f"[dim]{sport}: {len(events)} event(s), {len(rows)} edge(s) "
-        f"(markets={','.join(market_list)})[/dim]"
+        f"(markets={','.join(market_list)} dfs={','.join(platforms)})[/dim]"
     )
     return rows
 
@@ -155,9 +165,14 @@ def main(
         "--provider",
         help="Odds provider: auto (OddsPapi if keyed), oddspapi, or theoddsapi (legacy)",
     ),
+    dfs: str = typer.Option(
+        "both",
+        "--dfs",
+        help="DFS platforms to rank: prizepicks, underdog, or both (default both; one API pull)",
+    ),
     version: bool = typer.Option(False, "--version", help="Show version and exit"),
 ) -> None:
-    """Rank PrizePicks options by edge vs de-vigged book implied probability."""
+    """Rank PrizePicks / Underdog options by edge vs de-vigged book implied probability."""
     if version:
         console.print(__version__)
         raise typer.Exit(0)
@@ -178,6 +193,17 @@ def main(
     if book not in ("fanduel", "pinnacle"):
         console.print("[red]--book must be fanduel or pinnacle[/red]")
         raise typer.Exit(2)
+
+    try:
+        dfs_platforms = parse_dfs_arg(dfs)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+
+    if demo and dfs_platforms == ["underdog"]:
+        console.print(
+            "[yellow]Demo fixtures are PrizePicks-only — underdog edges will be empty[/yellow]"
+        )
 
     try:
         resolved = resolve_provider(provider)
@@ -210,6 +236,7 @@ def main(
             demo=demo,
             lean=lean,
             team=team,
+            dfs_platforms=dfs_platforms,
         )
         if rows:
             sports_with_data.append(sp)
@@ -225,7 +252,8 @@ def main(
     console.print(
         f"[bold]PrizePicksOddsShark[/bold] {__version__}  "
         f"[{mode}] provider={provider_label} sport={sport_label} book={book} "
-        f"min_edge={min_edge}% lean={lean} team={team or '-'} "
+        f"min_edge={min_edge}% lean={lean} dfs={','.join(dfs_platforms)} "
+        f"team={team or '-'} "
         f"sports_ok={','.join(sports_with_data) or 'none'}"
     )
     if not demo and getattr(client, "last_headers", None):
@@ -239,18 +267,19 @@ def main(
         )
         if not demo and resolved == "oddspapi":
             console.print(
-                "[dim]Tip: OddsPapi may lack PrizePicks markets for some fixtures; "
+                "[dim]Tip: OddsPapi may lack PrizePicks/Underdog markets for some fixtures; "
                 "empty slate is OK when auth works. Try --demo or another slate.[/dim]"
             )
     else:
         table = Table(show_header=True, header_style="bold")
         for col in (
             "Edge%",
+            "DFS",
             "Player",
             "Market",
             "Side",
             "Tier",
-            "PP",
+            "Line",
             "Book",
             "Fair",
             "Offered",
@@ -259,8 +288,10 @@ def main(
         ):
             table.add_column(col)
         for r in all_rows[:50]:
+            plat = (r.platform or "prizepicks").lower()
             table.add_row(
                 f"{r.edge_pct:.2f}",
+                _DFS_SHORT.get(plat, plat),
                 r.player,
                 r.market.replace("player_", "").replace("batter_", "").replace("pitcher_", ""),
                 r.side,
@@ -284,6 +315,7 @@ def main(
             book=book,
             demo=demo,
             sports=export_sports,
+            dfs_platforms=dfs_platforms,
         )
         console.print(f"Exported {len(all_rows)} rows → {path}")
 
