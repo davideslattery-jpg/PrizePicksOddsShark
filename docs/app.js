@@ -423,6 +423,14 @@
   els.sportFilter.addEventListener("change", render);
   els.minEdge.addEventListener("input", render);
 
+  // Auto-rank pasted probs on load when the field already has 2–6 values
+  if (els.slipProbs) {
+    const initial = parseProbsInput(els.slipProbs.value);
+    if (initial.length >= 2 && initial.length <= 6) {
+      renderSlip(initial);
+    }
+  }
+
   if (els.slipRun) {
     els.slipRun.addEventListener("click", () => {
       const probs = parseProbsInput(els.slipProbs?.value);

@@ -43,7 +43,11 @@
     </section>
 
     <div id="errorBox" class="error hidden" role="alert"></div>
-    <div id="emptyBox" class="empty hidden">No edges above the filter threshold.</div>
+    <div id="emptyBox" class="empty hidden">
+      <p><strong>No overlapping PrizePicks + FanDuel props right now.</strong></p>
+      <p>OddsPapi is returning FanDuel player props, but PrizePicks books are empty on these fixtures — so edge rows can’t be built. Slip advisor below still works if you paste probabilities and click <em>Rank slips</em>.</p>
+      <p class="dim">Manual refresh: GitHub → Actions → Update edges board → Run workflow (uses free API quota).</p>
+    </div>
 
     <div class="table-wrap">
       <table id="edgesTable">
