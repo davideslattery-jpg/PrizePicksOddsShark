@@ -1,8 +1,52 @@
 name: Update edges board
 
 on:
-  # Manual only — conserves free-tier API credits (no scheduled burns)
+  # Weekly football slate: Thu 15:00 UTC = 8am America/Phoenix (MST year-round)
+  schedule:
+    - cron: "0 15 * * 4"
   workflow_dispatch:
+    inputs:
+      sport_nfl:
+        description: "Fetch NFL"
+        type: boolean
+        default: true
+      sport_ncaaf:
+        description: "Fetch NCAAF"
+        type: boolean
+        default: true
+      sport_nba:
+        description: "Fetch NBA"
+        type: boolean
+        default: false
+      sport_ncaab:
+        description: "Fetch NCAAB"
+        type: boolean
+        default: false
+      sport_mlb:
+        description: "Fetch MLB"
+        type: boolean
+        default: false
+      sport_nhl:
+        description: "Fetch NHL"
+        type: boolean
+        default: false
+      # PGA: The Odds API only exposes golf outrights (no player props) — not offered
+      max_events_nfl:
+        description: "Max events NFL (~full slate)"
+        type: number
+        default: 16
+      max_events_ncaaf:
+        description: "Max events NCAAF"
+        type: number
+        default: 25
+      max_events_other:
+        description: "Max events other sports (NBA/NCAAB/MLB/NHL)"
+        type: number
+        default: 8
+      min_edge:
+        description: "Minimum edge % filter"
+        type: number
+        default: 2
 
 permissions:
   contents: write
@@ -26,37 +70,124 @@ jobs:
       - name: Install package
         run: pip install -e .
 
-      - name: Export edges (The Odds API live or demo)
+      - name: Resolve sports + export edges
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           ODDSPAPI_API_KEY: ${{ secrets.ODDSPAPI_API_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+          IN_NFL: ${{ inputs.sport_nfl }}
+          IN_NCAAF: ${{ inputs.sport_ncaaf }}
+          IN_NBA: ${{ inputs.sport_nba }}
+          IN_NCAAB: ${{ inputs.sport_ncaab }}
+          IN_MLB: ${{ inputs.sport_mlb }}
+          IN_NHL: ${{ inputs.sport_nhl }}
+          MAX_NFL: ${{ inputs.max_events_nfl }}
+          MAX_NCAAF: ${{ inputs.max_events_ncaaf }}
+          MAX_OTHER: ${{ inputs.max_events_other }}
+          MIN_EDGE: ${{ inputs.min_edge }}
         run: |
           set -euo pipefail
-          mkdir -p docs/data
-          OUT="docs/data/edges.json"
-          # Manual free-tier: NBA + NFL + full NCAAF (college football), lean markets
-          SPORTS="basketball_nba,americanfootball_nfl,americanfootball_ncaaf"
-          MAX_EVENTS=2
-          if [ -n "${ODDS_API_KEY:-}" ]; then
-            echo "ODDS_API_KEY present — The Odds API lean export (--sport ${SPORTS}, no team filter)"
-            if pp-odds --provider theoddsapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --dfs both --export "$OUT"; then
-              echo "Live The Odds API export OK"
-            else
-              echo "Live export failed — falling back to --demo"
-              pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
+          mkdir -p docs/data /tmp/pp-boards
+
+          # Scheduled weekly run: football only, credit-friendly defaults
+          if [ "${EVENT_NAME}" = "schedule" ]; then
+            echo "Scheduled weekly football refresh (NFL + NCAAF)"
+            SPORTS_CSV="americanfootball_nfl,americanfootball_ncaaf"
+            MAX_NFL=16
+            MAX_NCAAF=25
+            MAX_OTHER=8
+            MIN_EDGE=2
+          else
+            # Manual: build from workflow_dispatch checkboxes
+            SPORTS=()
+            # Treat empty/missing as false; GitHub passes true/false strings
+            [ "${IN_NFL:-false}" = "true" ] && SPORTS+=("americanfootball_nfl")
+            [ "${IN_NCAAF:-false}" = "true" ] && SPORTS+=("americanfootball_ncaaf")
+            [ "${IN_NBA:-false}" = "true" ] && SPORTS+=("basketball_nba")
+            [ "${IN_NCAAB:-false}" = "true" ] && SPORTS+=("basketball_ncaab")
+            [ "${IN_MLB:-false}" = "true" ] && SPORTS+=("baseball_mlb")
+            [ "${IN_NHL:-false}" = "true" ] && SPORTS+=("icehockey_nhl")
+            if [ ${#SPORTS[@]} -eq 0 ]; then
+              echo "No sports checked — defaulting to NFL + NCAAF"
+              SPORTS=("americanfootball_nfl" "americanfootball_ncaaf")
             fi
+            SPORTS_CSV=$(IFS=,; echo "${SPORTS[*]}")
+            MAX_NFL="${MAX_NFL:-16}"
+            MAX_NCAAF="${MAX_NCAAF:-25}"
+            MAX_OTHER="${MAX_OTHER:-8}"
+            MIN_EDGE="${MIN_EDGE:-2}"
+          fi
+
+          echo "Sports: ${SPORTS_CSV}"
+          echo "max_events nfl=${MAX_NFL} ncaaf=${MAX_NCAAF} other=${MAX_OTHER} min_edge=${MIN_EDGE}"
+
+          max_for_sport() {
+            case "$1" in
+              americanfootball_nfl) echo "$MAX_NFL" ;;
+              americanfootball_ncaaf) echo "$MAX_NCAAF" ;;
+              *) echo "$MAX_OTHER" ;;
+            esac
+          }
+
+          PROVIDER=""
+          if [ -n "${ODDS_API_KEY:-}" ]; then
+            PROVIDER="theoddsapi"
           elif [ -n "${ODDSPAPI_API_KEY:-}" ]; then
-            echo "ODDS_API_KEY missing; OddsPapi fallback"
-            if pp-odds --provider oddspapi --sport "$SPORTS" --lean --min-edge 2 --max-events "$MAX_EVENTS" --dfs both --export "$OUT"; then
-              echo "Live OddsPapi export OK"
+            PROVIDER="oddspapi"
+          else
+            PROVIDER=""
+          fi
+
+          OUT="docs/data/edges.json"
+          PARTS=()
+          IFS=',' read -ra SPORT_ARR <<< "$SPORTS_CSV"
+
+          if [ -n "$PROVIDER" ]; then
+            echo "Provider=${PROVIDER} — lean --dfs both per sport"
+            ANY_OK=0
+            for SP in "${SPORT_ARR[@]}"; do
+              SP=$(echo "$SP" | xargs)
+              [ -z "$SP" ] && continue
+              ME=$(max_for_sport "$SP")
+              PART="/tmp/pp-boards/${SP}.json"
+              echo "Fetching ${SP} max-events=${ME} ..."
+              if pp-odds --provider "$PROVIDER" --sport "$SP" --lean --min-edge "$MIN_EDGE" \
+                  --max-events "$ME" --dfs both --export "$PART"; then
+                if [ -f "$PART" ]; then
+                  PARTS+=("$PART")
+                  ANY_OK=1
+                fi
+              else
+                echo "Warning: ${SP} export failed — continuing"
+              fi
+            done
+
+            if [ "$ANY_OK" -eq 1 ]; then
+              python - "$OUT" "${PARTS[@]}" <<'PY'
+          import json, sys
+          from pathlib import Path
+          from prizepicks_oddsshark.export_util import merge_boards
+
+          out = Path(sys.argv[1])
+          boards = []
+          for p in sys.argv[2:]:
+              data = json.loads(Path(p).read_text(encoding="utf-8"))
+              boards.append(data)
+          if not boards:
+              raise SystemExit("no boards to merge")
+          merged = merge_boards(*boards)
+          out.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
+          print(f"Merged {len(boards)} board(s) → {out} count={merged.get('count')} sports={merged.get('sports')}")
+          PY
             else
-              echo "Live export failed — falling back to --demo"
+              echo "All live sport fetches failed — falling back to --demo"
               pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
             fi
           else
             echo "No odds API secrets — publishing demo board"
             pp-odds --demo --sport basketball_nba --min-edge 2 --dfs prizepicks --export "$OUT"
           fi
+
           python - <<'PY2'
           import json
           from collections import Counter

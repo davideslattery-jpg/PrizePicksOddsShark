@@ -117,3 +117,43 @@ tbody tr:hover { background: var(--row-hover); }
 .slip-table-wrap { margin-top: 0.5rem; }
 .slip-best { background: rgba(61, 220, 151, 0.12); }
 .slip-best td:first-child::after { content: " ★"; color: var(--accent); font-weight: 700; }
+
+.sport-filters {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.sport-filters legend {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+.sport-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  max-width: 22rem;
+}
+.sport-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  user-select: none;
+}
+.sport-check input {
+  accent-color: var(--accent-2);
+  cursor: pointer;
+}

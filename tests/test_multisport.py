@@ -93,3 +93,20 @@ def test_build_board_mixed_sports_from_rows():
     assert board["sports"] == ["basketball_nba", "baseball_mlb"]
     assert board["edges"][0]["sport"] == "basketball_nba"
     assert board["edges"][1]["sport"] == "baseball_mlb"
+
+
+def test_lean_markets_cover_supported_sports():
+    """Every supported sport has a non-empty lean market set (credit-saving)."""
+    for s in SUPPORTED_SPORTS:
+        markets = default_markets_for_sport(s, lean=True)
+        assert markets, f"missing lean markets for {s}"
+    # MLB / NHL / NCAAB specifically
+    assert "batter_hits" in default_markets_for_sport("baseball_mlb", lean=True)
+    assert "player_goals" in default_markets_for_sport("icehockey_nhl", lean=True)
+    assert "player_points" in default_markets_for_sport("basketball_ncaab", lean=True)
+
+
+def test_pga_not_in_supported_sports():
+    """PGA omitted: Odds API golf keys are outrights, not player props."""
+    assert "golf_pga" not in SUPPORTED_SPORTS
+    assert all(not s.startswith("golf_") for s in SUPPORTED_SPORTS)

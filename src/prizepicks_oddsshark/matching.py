@@ -10,6 +10,9 @@ from typing import Any, Iterable, Literal
 Tier = Literal["standard", "goblin", "demon"]
 
 # Sports supported by the CLI / board (core + optional college).
+# PGA / golf is NOT listed: The Odds API only exposes golf outrights
+# (e.g. golf_masters_tournament_winner, golf_pga_championship_winner) —
+# no player-prop markets that map to PrizePicks/Underdog lean edges.
 SUPPORTED_SPORTS: tuple[str, ...] = (
     "basketball_nba",
     "americanfootball_nfl",
@@ -158,13 +161,16 @@ LEAN_MARKETS_NHL = [
     "player_shots_on_goal",
 ]
 
+LEAN_MARKETS_NCAAB = list(LEAN_MARKETS_NBA)
+LEAN_MARKETS_NCAAF = list(LEAN_MARKETS_NFL)
+
 _LEAN_SPORT_MARKETS: dict[str, list[str]] = {
     "basketball_nba": LEAN_MARKETS_NBA,
     "americanfootball_nfl": LEAN_MARKETS_NFL,
     "baseball_mlb": LEAN_MARKETS_MLB,
     "icehockey_nhl": LEAN_MARKETS_NHL,
-    "basketball_ncaab": LEAN_MARKETS_NBA,
-    "americanfootball_ncaaf": LEAN_MARKETS_NFL,
+    "basketball_ncaab": LEAN_MARKETS_NCAAB,
+    "americanfootball_ncaaf": LEAN_MARKETS_NCAAF,
 }
 
 
