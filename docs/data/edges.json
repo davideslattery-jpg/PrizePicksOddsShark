@@ -1,17 +1,16 @@
 {
-  "updated_at": "2026-09-14T12:20:52Z",
+  "updated_at": "2026-09-17T18:44:14Z",
   "generated_by": "pp-odds",
   "mode": "live",
   "book": "fanduel",
   "sports": [
-    "basketball_nba",
     "americanfootball_nfl",
     "americanfootball_ncaaf"
   ],
-  "count": 0,
-  "edges": [],
   "dfs_platforms": [
     "prizepicks",
     "underdog"
-  ]
+  ],
+  "count": 0,
+  "edges": []
 }
