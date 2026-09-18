@@ -329,7 +329,9 @@ tbody tr:hover { background: var(--row-hover); }
   font-weight: 600;
   color: var(--text);
 }
-.suggest-rank-chips { margin: 0.5rem 0 0.35rem; }
+.suggest-rank-control { margin: 0.5rem 0 0.35rem; }
+.suggest-rank-control .field { max-width: 16rem; }
+.suggest-rank-control .field select { min-width: 12rem; text-transform: none; letter-spacing: 0; }
 .suggest-size-block { margin-top: 0.35rem; }
 .suggest-size-note { margin: 0 0 0.35rem; font-size: 0.8rem; }
 #suggestSizeTable, #suggestTable { min-width: 640px; }

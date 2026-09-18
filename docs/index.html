@@ -137,9 +137,14 @@
           Same independence / payout caveats as above.
           <strong>Sharpe</strong> = risk-adjusted EV: EV ÷ σ(profit) under independence (profit = payout − 1).
         </p>
-        <div class="sort-chips suggest-rank-chips" id="suggestRankChips" role="group" aria-label="Suggestion ranking">
-          <button type="button" class="chip" data-suggest-rank="ev" title="Rank by expected value">By EV</button>
-          <button type="button" class="chip active" data-suggest-rank="sharpe" title="Rank by EV / σ(profit)">By Sharpe</button>
+        <div class="suggest-rank-control">
+          <label class="field" for="suggestRank">
+            Rank by
+            <select id="suggestRank" aria-label="Suggestion ranking">
+              <option value="sharpe" selected>Sharpe (risk-adjusted)</option>
+              <option value="ev">EV / $1</option>
+            </select>
+          </label>
         </div>
         <p id="suggestStatus" class="dim"></p>
         <div class="suggest-size-block" id="suggestSizeBlock">

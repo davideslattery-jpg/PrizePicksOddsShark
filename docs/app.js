@@ -34,7 +34,7 @@
     suggestStatus: document.getElementById("suggestStatus"),
     suggestBody: document.getElementById("suggestBody"),
     suggestSizeBody: document.getElementById("suggestSizeBody"),
-    suggestRankChips: document.getElementById("suggestRankChips"),
+    suggestRankSelect: document.getElementById("suggestRank"),
   };
 
   let board = null;
@@ -43,8 +43,10 @@
   const selectedKeys = new Set();
   let suggestRank = "sharpe"; // "ev" | "sharpe"
   let lastSuggestResult = null; // { ranked, bestByN, meta }
+  let lastSuggestPool = null; // cached candidate pool for re-rank
 
   const DFS_STORAGE_KEY = "pp-odds-dfs-platform";
+  const SUGGEST_RANK_STORAGE_KEY = "pp-odds-suggest-rank";
   const SPORT_STORAGE_KEY = "pp-odds-sport-filters";
   const MARKET_STORAGE_KEY = "pp-odds-market-filters";
   const MIN_EDGE_STORAGE_KEY = "pp-odds-min-edge";
@@ -806,31 +808,56 @@
     fillSuggestRows(els.suggestBody, ranked, "rank");
   }
 
-  function syncSuggestRankChips() {
-    if (!els.suggestRankChips) return;
-    els.suggestRankChips.querySelectorAll("[data-suggest-rank]").forEach((btn) => {
-      const key = btn.getAttribute("data-suggest-rank");
-      btn.classList.toggle("active", key === suggestRank);
-    });
+  function loadSuggestRank() {
+    try {
+      const saved = localStorage.getItem(SUGGEST_RANK_STORAGE_KEY);
+      if (saved === "ev" || saved === "sharpe") suggestRank = saved;
+    } catch (_) {
+      /* private mode */
+    }
+    if (els.suggestRankSelect) els.suggestRankSelect.value = suggestRank;
+  }
+
+  function persistSuggestRank() {
+    try {
+      localStorage.setItem(SUGGEST_RANK_STORAGE_KEY, suggestRank);
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function applySuggestFromPool(pool, filteredCount) {
+    if (!pool || pool.length < 2) {
+      lastSuggestPool = pool && pool.length ? pool : null;
+      renderSuggestions(
+        { ranked: [], bestByN: [] },
+        `Need ≥2 non-junk ${platformLabel(activePlatform())} rows with book probs in the current filter (pool=${pool ? pool.length : 0}).`
+      );
+      return;
+    }
+    lastSuggestPool = pool;
+    const result = suggestSlipsFromPool(pool, suggestRank);
+    const from =
+      filteredCount != null
+        ? `From ${filteredCount} filtered → pool ${pool.length} (top by edge, junk skipped) → `
+        : `Re-ranked pool ${pool.length} → `;
+    const meta =
+      from +
+      `${result.ranked.length} ranked by ${suggestRank}` +
+      (result.bestByN.length ? ` · best-by-size ${result.bestByN.map((s) => s.n).join("/")}` : "") +
+      ` · independence assumed; Sharpe = EV/σ(profit)`;
+    renderSuggestions(result, meta);
   }
 
   function runSuggestSlips() {
     const rows = filteredRows();
     const pool = suggestCandidatePool(rows);
-    if (pool.length < 2) {
-      renderSuggestions(
-        { ranked: [], bestByN: [] },
-        `Need ≥2 non-junk ${platformLabel(activePlatform())} rows with book probs in the current filter (pool=${pool.length}).`
-      );
-      return;
-    }
-    const result = suggestSlipsFromPool(pool, suggestRank);
-    const meta =
-      `From ${rows.length} filtered → pool ${pool.length} (top by edge, junk skipped) → ` +
-      `${result.ranked.length} ranked by ${suggestRank}` +
-      (result.bestByN.length ? ` · best-by-size ${result.bestByN.map((s) => s.n).join("/")}` : "") +
-      ` · independence assumed; Sharpe = EV/σ(profit)`;
-    renderSuggestions(result, meta);
+    applySuggestFromPool(pool, rows.length);
+  }
+
+  function rerankCachedSuggestions() {
+    if (!lastSuggestPool || lastSuggestPool.length < 2) return;
+    applySuggestFromPool(lastSuggestPool, null);
   }
 
   function renderSlip(probs) {
@@ -1102,6 +1129,7 @@
 
   loadSavedPlatform();
   loadSavedFilters();
+  loadSuggestRank();
   els.refreshBtn.addEventListener("click", () => loadData({ manual: true }));
   if (els.dfsFilter) {
     els.dfsFilter.addEventListener("change", () => {
@@ -1175,17 +1203,18 @@
     });
   }
 
-  if (els.suggestRankChips) {
-    els.suggestRankChips.querySelectorAll("[data-suggest-rank]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const key = btn.getAttribute("data-suggest-rank");
-        if (key !== "ev" && key !== "sharpe") return;
-        suggestRank = key;
-        syncSuggestRankChips();
-        if (lastSuggestResult) runSuggestSlips();
-      });
+  if (els.suggestRankSelect) {
+    els.suggestRankSelect.addEventListener("change", () => {
+      const key = els.suggestRankSelect.value;
+      if (key !== "ev" && key !== "sharpe") return;
+      suggestRank = key;
+      persistSuggestRank();
+      if (lastSuggestPool && lastSuggestPool.length >= 2) {
+        rerankCachedSuggestions();
+      } else if (lastSuggestResult) {
+        runSuggestSlips();
+      }
     });
-    syncSuggestRankChips();
   }
   if (els.slipSuggest) {
     els.slipSuggest.addEventListener("click", () => {
