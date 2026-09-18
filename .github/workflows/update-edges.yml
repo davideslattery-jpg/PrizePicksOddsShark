@@ -2,6 +2,7 @@ name: Update edges board
 
 on:
   # Weekly football slate: Thu 15:00 UTC = 8am America/Phoenix (MST year-round)
+  # Cron stays lean (football only) so free/paid credits are not burned blindly.
   schedule:
     - cron: "0 15 * * 4"
   workflow_dispatch:
@@ -31,18 +32,26 @@ on:
         type: boolean
         default: false
       # PGA: The Odds API only exposes golf outrights (no player props) — not offered
+      lean:
+        description: "Lean markets (default ON for safety). Paid credits: set false or use use_full_markets"
+        type: boolean
+        default: true
+      use_full_markets:
+        description: "Omit --lean for richer markets (uses more Odds API credits; overrides lean when true)"
+        type: boolean
+        default: false
       max_events_nfl:
-        description: "Max events NFL (~full slate)"
+        description: "Max events NFL (~full slate). Paid tip: 17"
         type: number
         default: 16
       max_events_ncaaf:
-        description: "Max events NCAAF"
+        description: "Max events NCAAF. Paid tip: 40"
         type: number
         default: 25
       max_events_other:
-        description: "Max events other sports (NBA/NCAAB/MLB/NHL)"
+        description: "Max events other sports (NBA/NCAAB/MLB/NHL). Paid tip: raise to 12+; no separate max_events_nba — use this"
         type: number
-        default: 8
+        default: 10
       min_edge:
         description: "Minimum edge % filter"
         type: number
@@ -81,6 +90,8 @@ jobs:
           IN_NCAAB: ${{ inputs.sport_ncaab }}
           IN_MLB: ${{ inputs.sport_mlb }}
           IN_NHL: ${{ inputs.sport_nhl }}
+          IN_LEAN: ${{ inputs.lean }}
+          IN_FULL_MARKETS: ${{ inputs.use_full_markets }}
           MAX_NFL: ${{ inputs.max_events_nfl }}
           MAX_NCAAF: ${{ inputs.max_events_ncaaf }}
           MAX_OTHER: ${{ inputs.max_events_other }}
@@ -89,14 +100,15 @@ jobs:
           set -euo pipefail
           mkdir -p docs/data /tmp/pp-boards
 
-          # Scheduled weekly run: football only, credit-friendly defaults
+          # Scheduled weekly run: football only, credit-friendly lean defaults
           if [ "${EVENT_NAME}" = "schedule" ]; then
-            echo "Scheduled weekly football refresh (NFL + NCAAF)"
+            echo "Scheduled weekly football refresh (NFL + NCAAF, lean)"
             SPORTS_CSV="americanfootball_nfl,americanfootball_ncaaf"
             MAX_NFL=16
             MAX_NCAAF=25
-            MAX_OTHER=8
+            MAX_OTHER=10
             MIN_EDGE=2
+            USE_LEAN=1
           else
             # Manual: build from workflow_dispatch checkboxes
             SPORTS=()
@@ -114,12 +126,20 @@ jobs:
             SPORTS_CSV=$(IFS=,; echo "${SPORTS[*]}")
             MAX_NFL="${MAX_NFL:-16}"
             MAX_NCAAF="${MAX_NCAAF:-25}"
-            MAX_OTHER="${MAX_OTHER:-8}"
+            MAX_OTHER="${MAX_OTHER:-10}"
             MIN_EDGE="${MIN_EDGE:-2}"
+            # use_full_markets=true omits --lean; else lean defaults true for safety
+            if [ "${IN_FULL_MARKETS:-false}" = "true" ]; then
+              USE_LEAN=0
+            elif [ "${IN_LEAN:-true}" = "false" ]; then
+              USE_LEAN=0
+            else
+              USE_LEAN=1
+            fi
           fi
 
           echo "Sports: ${SPORTS_CSV}"
-          echo "max_events nfl=${MAX_NFL} ncaaf=${MAX_NCAAF} other=${MAX_OTHER} min_edge=${MIN_EDGE}"
+          echo "max_events nfl=${MAX_NFL} ncaaf=${MAX_NCAAF} other=${MAX_OTHER} min_edge=${MIN_EDGE} lean=${USE_LEAN}"
 
           max_for_sport() {
             case "$1" in
@@ -143,15 +163,21 @@ jobs:
           IFS=',' read -ra SPORT_ARR <<< "$SPORTS_CSV"
 
           if [ -n "$PROVIDER" ]; then
-            echo "Provider=${PROVIDER} — lean --dfs both per sport"
+            if [ "$USE_LEAN" = "1" ]; then
+              echo "Provider=${PROVIDER} — lean --dfs both per sport"
+              LEAN_ARGS=(--lean)
+            else
+              echo "Provider=${PROVIDER} — FULL markets (no --lean) --dfs both per sport"
+              LEAN_ARGS=()
+            fi
             ANY_OK=0
             for SP in "${SPORT_ARR[@]}"; do
               SP=$(echo "$SP" | xargs)
               [ -z "$SP" ] && continue
               ME=$(max_for_sport "$SP")
               PART="/tmp/pp-boards/${SP}.json"
-              echo "Fetching ${SP} max-events=${ME} ..."
-              if pp-odds --provider "$PROVIDER" --sport "$SP" --lean --min-edge "$MIN_EDGE" \
+              echo "Fetching ${SP} max-events=${ME} lean=${USE_LEAN} ..."
+              if pp-odds --provider "$PROVIDER" --sport "$SP" "${LEAN_ARGS[@]}" --min-edge "$MIN_EDGE" \
                   --max-events "$ME" --dfs both --export "$PART"; then
                 if [ -f "$PART" ]; then
                   PARTS+=("$PART")

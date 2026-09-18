@@ -28,19 +28,57 @@
             <!-- populated from board data -->
           </div>
         </fieldset>
+        <fieldset class="field sport-filters" id="marketFilterField">
+          <legend>Markets</legend>
+          <div id="marketFilters" class="sport-checkboxes market-checkboxes" role="group" aria-label="Filter by market">
+            <!-- populated from board data -->
+          </div>
+        </fieldset>
+        <label class="field">
+          Player search
+          <input id="playerSearch" type="search" placeholder="Name…" autocomplete="off" aria-label="Search players" />
+        </label>
         <label class="field">
           Min edge %
           <input id="minEdge" type="number" min="0" step="0.5" value="2" />
+        </label>
+        <label class="field" title="Prop discrepancy: minimum absolute DFS vs book line gap">
+          Min |Line Δ|
+          <input id="minLineGap" type="number" min="0" step="0.5" value="0" />
         </label>
         <button type="button" id="refreshBtn" class="btn">Refresh</button>
       </div>
     </header>
 
     <div id="staleBanner" class="stale hidden" role="status">
-      Board data looks stale (older than ~2 hours). Try
+      Board data looks stale (older than ~2 hours). Free Odds API credits may be exhausted —
+      add paid credits, then
       <strong>Actions → Update edges board → Run workflow</strong>
-      (or wait for the Thu football cron), then Refresh.
+      (or wait for the Thu football cron), then Refresh. Personal research only.
     </div>
+
+    <section class="kpi-strip" id="kpiStrip" aria-label="Board summary">
+      <div class="kpi">
+        <span class="kpi-label">Visible</span>
+        <span class="kpi-value" id="kpiVisible">—</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Best edge</span>
+        <span class="kpi-value kpi-accent" id="kpiBest">—</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Edges ≥5%</span>
+        <span class="kpi-value" id="kpiStrong">—</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">|Line Δ| ≥0.5</span>
+        <span class="kpi-value" id="kpiLineGap">—</span>
+      </div>
+      <div class="kpi kpi-wide">
+        <span class="kpi-label">Last updated</span>
+        <span class="kpi-value kpi-fresh" id="kpiFresh">—</span>
+      </div>
+    </section>
 
     <section class="status" id="statusBar" aria-live="polite">
       <span id="updatedAt">Loading…</span>
@@ -49,15 +87,22 @@
       <span id="reloadHint" class="dim">Page auto-reloads JSON · weekly Thu cron + manual Actions refresh</span>
     </section>
 
+    <div class="sort-chips" id="sortChips" role="group" aria-label="Quick sort">
+      <button type="button" class="chip active" data-sort-chip="edge_pct" title="Highest edge first">Top edge</button>
+      <button type="button" class="chip" data-sort-chip="line_gap_abs" title="Biggest absolute line gap">Biggest line gap</button>
+      <button type="button" class="chip" data-sort-chip="player" title="Player name A–Z">Player A–Z</button>
+    </div>
+
     <div id="errorBox" class="error hidden" role="alert"></div>
     <div id="emptyBox" class="empty hidden">
       <p><strong>No edges above the filter for this platform (or no overlapping DFS + FanDuel props).</strong></p>
-      <p>If The Odds API free credits are exhausted, refreshes stay empty until the quota resets. Slip advisor below still works with pasted probs + <em>Rank slips</em>.</p>
-      <p class="dim">Refresh: GitHub → Actions → Update edges board (Thu cron or Run workflow with sport checkboxes).</p>
+      <p>If The Odds API free credits are exhausted, refreshes stay empty until you add <strong>paid credits</strong> and
+        <strong>Actions → Update edges board → Run workflow</strong> (try lean off / higher max-events). Slip advisor below still works with pasted probs + <em>Rank slips</em>.</p>
+      <p class="dim">Personal research only. Refresh: GitHub → Actions → Update edges board (Thu cron or Run workflow with sport checkboxes).</p>
     </div>
 
     <div class="table-wrap">
-      <table id="edgesTable">
+      <table id="edgesTable" class="dense">
         <thead>
           <tr>
             <th title="Select for slip advisor" class="chk-col">Slip</th>
@@ -74,6 +119,7 @@
             <th data-sort="prob_delta" title="Book prob minus DFS prob (same as Edge% / 100)">Prob Δ</th>
             <th data-sort="game">Game</th>
             <th data-sort="sport">Sport</th>
+            <th class="copy-col" title="Copy pick to clipboard">Copy</th>
           </tr>
         </thead>
         <tbody id="edgesBody"></tbody>
@@ -116,12 +162,13 @@
       <p>
         Live odds via <a href="https://the-odds-api.com/" rel="noopener">The Odds API</a>
         (weekly Thu football cron + manual sport checkboxes · PrizePicks + Underdog in one pull).
-        Board <strong>Platform</strong> / <strong>Sports</strong> filters are client-side only — do not burn API credits.
+        Board filters (Platform / Sports / Markets / search / line gap) are client-side only — do not burn API credits.
         OddsPapi is an optional fallback. Not affiliated with PrizePicks, Underdog, or FanDuel.
-        Refresh: GitHub Actions → Update edges board (scheduled Thu 8am PT for NFL+NCAAF, or Run workflow). Free API quota applies.
+        Refresh: GitHub Actions → Update edges board (scheduled Thu 8am PT for NFL+NCAAF lean, or Run workflow with paid-credit knobs).
         Bookmark:
         <code>https://davideslattery-jpg.github.io/PrizePicksOddsShark/</code>
       </p>
+      <p class="dim">Personal research only. Not betting advice.</p>
     </footer>
   </div>
   <script src="app.js"></script>

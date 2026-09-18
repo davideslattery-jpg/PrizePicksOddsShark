@@ -2,6 +2,7 @@
   const DATA_URL = "data/edges.json";
   const RELOAD_MS = 3 * 60 * 1000; // ~3 minutes
   const STALE_MS = 2 * 60 * 60 * 1000; // ~2 hours
+  const MEANINGFUL_LINE_GAP = 0.5;
 
   const els = {
     body: document.getElementById("edgesBody"),
@@ -12,9 +13,18 @@
     emptyBox: document.getElementById("emptyBox"),
     dfsFilter: document.getElementById("dfsFilter"),
     sportFilters: document.getElementById("sportFilters"),
+    marketFilters: document.getElementById("marketFilters"),
+    playerSearch: document.getElementById("playerSearch"),
     minEdge: document.getElementById("minEdge"),
+    minLineGap: document.getElementById("minLineGap"),
     refreshBtn: document.getElementById("refreshBtn"),
     staleBanner: document.getElementById("staleBanner"),
+    sortChips: document.getElementById("sortChips"),
+    kpiVisible: document.getElementById("kpiVisible"),
+    kpiBest: document.getElementById("kpiBest"),
+    kpiStrong: document.getElementById("kpiStrong"),
+    kpiLineGap: document.getElementById("kpiLineGap"),
+    kpiFresh: document.getElementById("kpiFresh"),
     slipProbs: document.getElementById("slipProbs"),
     slipFromSelection: document.getElementById("slipFromSelection"),
     slipRun: document.getElementById("slipRun"),
@@ -26,8 +36,15 @@
   let sortKey = "edge_pct";
   let sortDir = -1;
   const selectedKeys = new Set();
+
   const DFS_STORAGE_KEY = "pp-odds-dfs-platform";
   const SPORT_STORAGE_KEY = "pp-odds-sport-filters";
+  const MARKET_STORAGE_KEY = "pp-odds-market-filters";
+  const MIN_EDGE_STORAGE_KEY = "pp-odds-min-edge";
+  const MIN_LINE_GAP_STORAGE_KEY = "pp-odds-min-line-gap";
+  const PLAYER_SEARCH_STORAGE_KEY = "pp-odds-player-search";
+  const SORT_KEY_STORAGE = "pp-odds-sort-key";
+  const SORT_DIR_STORAGE = "pp-odds-sort-dir";
 
   /** Full seasonal catalog (PGA omitted — Odds API outrights only, no player props). */
   const SPORT_CATALOG = [
@@ -94,7 +111,17 @@
       const book = Number(e.book_line);
       lineDiff = Number.isFinite(pp) && Number.isFinite(book) ? pp - book : null;
     }
-    return { ...e, prob_delta: probDelta, line_diff: lineDiff };
+    const lineGapAbs = Number.isFinite(lineDiff) ? Math.abs(lineDiff) : null;
+    return { ...e, prob_delta: probDelta, line_diff: lineDiff, line_gap_abs: lineGapAbs };
+  }
+
+  function edgeTier(edgePct) {
+    const n = Number(edgePct);
+    if (!Number.isFinite(n)) return { key: "weak", label: "Weak" };
+    if (n >= 8) return { key: "elite", label: "Elite" };
+    if (n >= 5) return { key: "strong", label: "Strong" };
+    if (n >= 2) return { key: "playable", label: "Playable" };
+    return { key: "weak", label: "Weak" };
   }
 
   function fmtLine(x) {
@@ -145,9 +172,9 @@
     const day = Math.round(hr / 24);
     let rel;
     if (sec < 45) rel = "just now";
-    else if (min < 60) rel = `${min} min ago`;
-    else if (hr < 48) rel = `${hr} hr ago`;
-    else rel = `${day} day${day === 1 ? "" : "s"} ago`;
+    else if (min < 60) rel = `${min}m ago`;
+    else if (hr < 48) rel = `${hr}h ago`;
+    else rel = `${day}d ago`;
     if (diffMs < 0) rel = "in the future";
     return rel;
   }
@@ -168,7 +195,6 @@
     els.errorBox.classList.add("hidden");
     els.errorBox.textContent = "";
   }
-
 
   function activePlatform() {
     const v = (els.dfsFilter && els.dfsFilter.value) || "prizepicks";
@@ -204,9 +230,9 @@
     return p === "underdog" ? "Underdog" : "PrizePicks";
   }
 
-  function loadSavedSportFilters() {
+  function loadJsonArray(key) {
     try {
-      const raw = localStorage.getItem(SPORT_STORAGE_KEY);
+      const raw = localStorage.getItem(key);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return null;
@@ -216,9 +242,78 @@
     }
   }
 
-  function persistSportFilters(keys) {
+  function persistJsonArray(key, keys) {
     try {
-      localStorage.setItem(SPORT_STORAGE_KEY, JSON.stringify(keys));
+      localStorage.setItem(key, JSON.stringify(keys));
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function loadSavedSportFilters() {
+    return loadJsonArray(SPORT_STORAGE_KEY);
+  }
+
+  function persistSportFilters(keys) {
+    persistJsonArray(SPORT_STORAGE_KEY, keys);
+  }
+
+  function loadSavedMarketFilters() {
+    return loadJsonArray(MARKET_STORAGE_KEY);
+  }
+
+  function persistMarketFilters(keys) {
+    persistJsonArray(MARKET_STORAGE_KEY, keys);
+  }
+
+  function loadSavedNumber(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw == null || raw === "") return fallback;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function persistNumber(key, value) {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function loadSavedFilters() {
+    if (els.minEdge) {
+      els.minEdge.value = String(loadSavedNumber(MIN_EDGE_STORAGE_KEY, Number(els.minEdge.value) || 2));
+    }
+    if (els.minLineGap) {
+      els.minLineGap.value = String(loadSavedNumber(MIN_LINE_GAP_STORAGE_KEY, Number(els.minLineGap.value) || 0));
+    }
+    if (els.playerSearch) {
+      try {
+        const saved = localStorage.getItem(PLAYER_SEARCH_STORAGE_KEY);
+        if (saved != null) els.playerSearch.value = saved;
+      } catch (_) {
+        /* private mode */
+      }
+    }
+    try {
+      const sk = localStorage.getItem(SORT_KEY_STORAGE);
+      const sd = localStorage.getItem(SORT_DIR_STORAGE);
+      if (sk) sortKey = sk;
+      if (sd === "1" || sd === "-1") sortDir = Number(sd);
+    } catch (_) {
+      /* private mode */
+    }
+  }
+
+  function persistSort() {
+    try {
+      localStorage.setItem(SORT_KEY_STORAGE, sortKey);
+      localStorage.setItem(SORT_DIR_STORAGE, String(sortDir));
     } catch (_) {
       /* private mode */
     }
@@ -227,8 +322,17 @@
   function checkedSports() {
     if (!els.sportFilters) return new Set();
     const set = new Set();
-    els.sportFilters.querySelectorAll('input[type=checkbox][data-sport]').forEach((box) => {
+    els.sportFilters.querySelectorAll("input[type=checkbox][data-sport]").forEach((box) => {
       if (box.checked) set.add(box.getAttribute("data-sport"));
+    });
+    return set;
+  }
+
+  function checkedMarkets() {
+    if (!els.marketFilters) return new Set();
+    const set = new Set();
+    els.marketFilters.querySelectorAll("input[type=checkbox][data-market]").forEach((box) => {
+      if (box.checked) set.add(box.getAttribute("data-market"));
     });
     return set;
   }
@@ -236,19 +340,16 @@
   function populateSports(edges) {
     if (!els.sportFilters) return;
     const inData = [...new Set(edges.map((e) => e.sport).filter(Boolean))];
-    // Prefer sports present in data; fall back to full catalog if empty
     const sports = (inData.length ? inData : SPORT_CATALOG).slice().sort((a, b) =>
       prettySport(a).localeCompare(prettySport(b))
     );
     const saved = loadSavedSportFilters();
-    // Default: all sports that currently have edges (or all catalog if none)
     const defaultOn = new Set(inData.length ? inData : sports);
     const enabled = new Set(
       saved && saved.length
         ? saved.filter((s) => sports.includes(s))
         : [...defaultOn]
     );
-    // If saved filters exclude everything visible, re-default to all with data
     if (![...enabled].some((s) => sports.includes(s))) {
       sports.forEach((s) => enabled.add(s));
     }
@@ -279,28 +380,156 @@
     });
   }
 
+  function populateMarkets(edges) {
+    if (!els.marketFilters) return;
+    const markets = [...new Set(edges.map((e) => e.market).filter(Boolean))].sort((a, b) =>
+      prettyMarket(a).localeCompare(prettyMarket(b))
+    );
+    const saved = loadSavedMarketFilters();
+    const enabled = new Set(
+      saved && saved.length
+        ? saved.filter((m) => markets.includes(m))
+        : markets
+    );
+    if (markets.length && ![...enabled].some((m) => markets.includes(m))) {
+      markets.forEach((m) => enabled.add(m));
+    }
+
+    const prevHtml = els.marketFilters.getAttribute("data-markets-sig") || "";
+    const sig = markets.join("|");
+    if (prevHtml === sig && els.marketFilters.querySelector("input[data-market]")) {
+      return;
+    }
+    els.marketFilters.setAttribute("data-markets-sig", sig);
+    els.marketFilters.innerHTML = "";
+
+    if (!markets.length) {
+      const span = document.createElement("span");
+      span.className = "dim";
+      span.style.fontSize = "0.78rem";
+      span.textContent = "No markets in data";
+      els.marketFilters.appendChild(span);
+      return;
+    }
+
+    for (const m of markets) {
+      const id = `market-${m}`;
+      const label = document.createElement("label");
+      label.className = "sport-check";
+      label.htmlFor = id;
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = id;
+      input.setAttribute("data-market", m);
+      input.checked = enabled.has(m);
+      const span = document.createElement("span");
+      span.textContent = prettyMarket(m);
+      label.appendChild(input);
+      label.appendChild(span);
+      els.marketFilters.appendChild(label);
+    }
+
+    els.marketFilters.querySelectorAll("input[type=checkbox][data-market]").forEach((box) => {
+      box.addEventListener("change", () => {
+        persistMarketFilters([...checkedMarkets()]);
+        render();
+      });
+    });
+  }
+
+  function playerQuery() {
+    return (els.playerSearch && els.playerSearch.value.trim().toLowerCase()) || "";
+  }
+
+  function minLineGapFloor() {
+    const n = Number(els.minLineGap && els.minLineGap.value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
   function filteredRows() {
     if (!board || !Array.isArray(board.edges)) return [];
     const sports = checkedSports();
+    const markets = checkedMarkets();
     const platform = activePlatform();
     const minEdge = Number(els.minEdge.value);
     const floor = Number.isFinite(minEdge) ? minEdge : 0;
+    const lineFloor = minLineGapFloor();
+    const q = playerQuery();
+    const marketBoxesExist = els.marketFilters && els.marketFilters.querySelector("input[data-market]");
+
     let rows = board.edges.filter(
       (e) => Number(e.edge_pct) >= floor && edgePlatform(e) === platform
     );
     if (sports.size > 0) {
       rows = rows.filter((e) => sports.has(e.sport));
     } else {
-      // Nothing checked → show none (clear empty state)
       rows = [];
     }
+    if (marketBoxesExist) {
+      if (markets.size > 0) {
+        rows = rows.filter((e) => markets.has(e.market));
+      } else {
+        rows = [];
+      }
+    }
+    if (lineFloor > 0) {
+      rows = rows.filter((e) => Number(e.line_gap_abs) >= lineFloor);
+    }
+    if (q) {
+      rows = rows.filter((e) => String(e.player || "").toLowerCase().includes(q));
+    }
+
+    const sortVal = (row) => {
+      if (sortKey === "line_gap_abs") return Number(row.line_gap_abs);
+      return row[sortKey];
+    };
     rows = [...rows].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortDir;
+      const av = sortVal(a);
+      const bv = sortVal(b);
+      if (typeof av === "number" && typeof bv === "number") {
+        if (!Number.isFinite(av) && !Number.isFinite(bv)) return 0;
+        if (!Number.isFinite(av)) return 1;
+        if (!Number.isFinite(bv)) return -1;
+        return (av - bv) * sortDir;
+      }
       return String(av ?? "").localeCompare(String(bv ?? "")) * sortDir;
     });
     return rows;
+  }
+
+  function updateKpis(rows) {
+    if (els.kpiVisible) els.kpiVisible.textContent = String(rows.length);
+    if (els.kpiBest) {
+      const best = rows.reduce((m, r) => Math.max(m, Number(r.edge_pct) || -Infinity), -Infinity);
+      els.kpiBest.textContent = Number.isFinite(best) && rows.length ? `${best.toFixed(1)}%` : "—";
+    }
+    if (els.kpiStrong) {
+      els.kpiStrong.textContent = String(rows.filter((r) => Number(r.edge_pct) >= 5).length);
+    }
+    if (els.kpiLineGap) {
+      els.kpiLineGap.textContent = String(
+        rows.filter((r) => Number(r.line_gap_abs) >= MEANINGFUL_LINE_GAP).length
+      );
+    }
+    if (els.kpiFresh && board) {
+      const rel = relativeTime(board.updated_at);
+      const abs = localTime(board.updated_at);
+      els.kpiFresh.textContent = `${rel} · ${abs}`;
+      els.kpiFresh.title = abs;
+      els.kpiFresh.classList.toggle("kpi-stale", isStale(board.updated_at));
+    }
+  }
+
+  function updateSortChips() {
+    if (!els.sortChips) return;
+    els.sortChips.querySelectorAll("[data-sort-chip]").forEach((btn) => {
+      const key = btn.getAttribute("data-sort-chip");
+      const active =
+        (key === "edge_pct" && sortKey === "edge_pct") ||
+        (key === "line_gap_abs" && sortKey === "line_gap_abs") ||
+        (key === "player" && sortKey === "player");
+      btn.classList.toggle("active", active);
+    });
   }
 
   function combinations(n, k) {
@@ -435,6 +664,51 @@
     return probs;
   }
 
+  function copyPickText(r) {
+    const plat = platformLabel(edgePlatform(r));
+    const side = String(r.side || "").trim();
+    const line = fmtLine(r.pp_line);
+    const mkt = prettyMarket(r.market);
+    const edge = fmtEdge(r.edge_pct);
+    const bookPct = fmtPct(r.fair_prob);
+    return `${r.player} ${side} ${line} ${mkt} (${plat}) · edge ${edge}% · book ${bookPct}`;
+  }
+
+  async function copyPick(r, btn) {
+    const text = copyPickText(r);
+    try {
+      await navigator.clipboard.writeText(text);
+      if (btn) {
+        const prev = btn.textContent;
+        btn.textContent = "Copied";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = prev;
+          btn.classList.remove("copied");
+        }, 1200);
+      }
+    } catch (_) {
+      // Fallback for older browsers / insecure context
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        if (btn) {
+          btn.textContent = "Copied";
+          setTimeout(() => {
+            btn.textContent = "Copy";
+          }, 1200);
+        }
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+  }
+
   function render() {
     if (!board) return;
     clearError();
@@ -455,11 +729,14 @@
       ? [...els.sportFilters.querySelectorAll("input[data-sport]")].map((b) => b.getAttribute("data-sport")).sort()
       : [];
     if (JSON.stringify(sportsInData) !== JSON.stringify(existingBoxes)) {
-      // Use all board edges for sport list (not just active platform) so filters stay stable
       populateSports(board.edges || []);
     }
+    populateMarkets(board.edges || []);
 
     const rows = filteredRows();
+    updateKpis(rows);
+    updateSortChips();
+
     const sportSet = checkedSports();
     const platformSportEdges = platformEdges.filter(
       (e) => sportSet.size === 0 || sportSet.has(e.sport)
@@ -480,12 +757,15 @@
       els.emptyBox.classList.remove("hidden");
       const strong = els.emptyBox.querySelector("strong");
       if (strong) {
-        const sportHint =
-          checkedSports().size === 0
-            ? " (no sports checked)"
+        const sportHint = checkedSports().size === 0 ? " (no sports checked)" : "";
+        const marketHint =
+          els.marketFilters &&
+          els.marketFilters.querySelector("input[data-market]") &&
+          checkedMarkets().size === 0
+            ? " (no markets checked)"
             : "";
         strong.textContent =
-          `No edges above the filter for ${platformLabel(platform)}${sportHint} ` +
+          `No edges above the filter for ${platformLabel(platform)}${sportHint}${marketHint} ` +
           `(or no overlapping ${platformLabel(platform)} + FanDuel props).`;
       }
       return;
@@ -496,13 +776,19 @@
     for (const r of rows) {
       const tr = document.createElement("tr");
       const tier = (r.tier || "standard").toLowerCase();
+      const et = edgeTier(r.edge_pct);
       const probClass =
         Number(r.prob_delta) > 0 ? "edge-pos" : Number(r.prob_delta) < 0 ? "edge-neg" : "";
       const key = edgeKey(r);
       const checked = selectedKeys.has(key) ? "checked" : "";
+      if (et.key === "elite") tr.classList.add("row-elite");
+      else if (et.key === "strong") tr.classList.add("row-strong");
       tr.innerHTML = `
         <td class="chk-col"><input type="checkbox" data-key="${escapeHtml(key)}" ${checked} aria-label="Select for slip" /></td>
-        <td class="num edge-pos">${fmtEdge(r.edge_pct)}</td>
+        <td class="num edge-cell">
+          <span class="edge-pos">${fmtEdge(r.edge_pct)}</span>
+          <span class="edge-tier tier-${et.key}" title="${et.label} edge">${et.label}</span>
+        </td>
         <td>${escapeHtml(r.player)}</td>
         <td class="market">${escapeHtml(prettyMarket(r.market))}</td>
         <td>${escapeHtml(r.side)}</td>
@@ -515,10 +801,13 @@
         <td class="num ${probClass}" title="Book prob − DFS prob">${fmtSignedPctPoints(r.prob_delta)}</td>
         <td>${escapeHtml(r.game || r.matchup || "")}</td>
         <td>${escapeHtml(prettySport(r.sport))}</td>
+        <td class="copy-col"><button type="button" class="btn-copy" data-copy-key="${escapeHtml(key)}" title="Copy pick" aria-label="Copy pick">Copy</button></td>
       `;
       frag.appendChild(tr);
     }
     els.body.appendChild(frag);
+
+    const byKey = new Map(rows.map((r) => [edgeKey(r), r]));
     els.body.querySelectorAll("input[type=checkbox][data-key]").forEach((box) => {
       box.addEventListener("change", () => {
         const k = box.getAttribute("data-key");
@@ -532,6 +821,13 @@
         } else {
           selectedKeys.delete(k);
         }
+      });
+    });
+    els.body.querySelectorAll("button[data-copy-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const k = btn.getAttribute("data-copy-key");
+        const row = byKey.get(k);
+        if (row) copyPick(row, btn);
       });
     });
   }
@@ -565,6 +861,7 @@
       if (!board) {
         els.updatedAt.textContent = "No data loaded";
         els.countLabel.textContent = "";
+        updateKpis([]);
       }
     } finally {
       els.refreshBtn.disabled = false;
@@ -572,6 +869,7 @@
   }
 
   loadSavedPlatform();
+  loadSavedFilters();
   els.refreshBtn.addEventListener("click", () => loadData({ manual: true }));
   if (els.dfsFilter) {
     els.dfsFilter.addEventListener("change", () => {
@@ -580,10 +878,44 @@
       render();
     });
   }
-  // Sport checkboxes bind in populateSports()
-  els.minEdge.addEventListener("input", render);
+  els.minEdge.addEventListener("input", () => {
+    persistNumber(MIN_EDGE_STORAGE_KEY, Number(els.minEdge.value) || 0);
+    render();
+  });
+  if (els.minLineGap) {
+    els.minLineGap.addEventListener("input", () => {
+      persistNumber(MIN_LINE_GAP_STORAGE_KEY, Number(els.minLineGap.value) || 0);
+      render();
+    });
+  }
+  if (els.playerSearch) {
+    els.playerSearch.addEventListener("input", () => {
+      try {
+        localStorage.setItem(PLAYER_SEARCH_STORAGE_KEY, els.playerSearch.value);
+      } catch (_) {
+        /* private mode */
+      }
+      render();
+    });
+  }
 
-  // Auto-rank pasted probs on load when the field already has 2–6 values
+  if (els.sortChips) {
+    els.sortChips.querySelectorAll("[data-sort-chip]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-sort-chip");
+        if (!key) return;
+        if (sortKey === key) {
+          sortDir *= -1;
+        } else {
+          sortKey = key;
+          sortDir = key === "player" ? 1 : -1;
+        }
+        persistSort();
+        render();
+      });
+    });
+  }
+
   if (els.slipProbs) {
     const initial = parseProbsInput(els.slipProbs.value);
     if (initial.length >= 2 && initial.length <= 6) {
@@ -617,8 +949,15 @@
       if (sortKey === key) sortDir *= -1;
       else {
         sortKey = key;
-        sortDir = key === "edge_pct" || key === "prob_delta" || key === "fair_prob" ? -1 : 1;
+        sortDir =
+          key === "edge_pct" ||
+          key === "prob_delta" ||
+          key === "fair_prob" ||
+          key === "line_gap_abs"
+            ? -1
+            : 1;
       }
+      persistSort();
       render();
     });
   });
