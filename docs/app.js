@@ -27,9 +27,12 @@
     kpiFresh: document.getElementById("kpiFresh"),
     slipProbs: document.getElementById("slipProbs"),
     slipFromSelection: document.getElementById("slipFromSelection"),
+    slipSuggest: document.getElementById("slipSuggest"),
     slipRun: document.getElementById("slipRun"),
     slipStatus: document.getElementById("slipStatus"),
     slipBody: document.getElementById("slipBody"),
+    suggestStatus: document.getElementById("suggestStatus"),
+    suggestBody: document.getElementById("suggestBody"),
   };
 
   let board = null;
@@ -73,6 +76,12 @@
     5: { 5: 10, 4: 2, 3: 0.4 },
     6: { 6: 25, 5: 2, 4: 0.4 },
   };
+
+  /** Suggest slips: candidate pool + junk-match filter (tunable). */
+  const SUGGEST_POOL_K = 16;
+  const SUGGEST_TOP_N = 6;
+  const JUNK_MAX_EDGE_PCT = 15;
+  const JUNK_MAX_ABS_LINE_DIFF = 5;
 
   function fmtPct(x) {
     const n = Number(x);
@@ -601,6 +610,138 @@
     return rows;
   }
 
+  function isJunkEdge(e) {
+    const fp = Number(e.fair_prob);
+    if (!Number.isFinite(fp) || fp <= 0 || fp >= 1) return true;
+    const ep = Number(e.edge_pct);
+    if (Number.isFinite(ep) && ep > JUNK_MAX_EDGE_PCT) return true;
+    const ld = Number(e.line_diff);
+    const ald = Number.isFinite(ld) ? Math.abs(ld) : 0;
+    if (ald > JUNK_MAX_ABS_LINE_DIFF) return true;
+    return false;
+  }
+
+  function suggestCandidatePool(rows) {
+    const clean = rows.filter((e) => !isJunkEdge(e));
+    return [...clean]
+      .sort((a, b) => (Number(b.edge_pct) || 0) - (Number(a.edge_pct) || 0))
+      .slice(0, SUGGEST_POOL_K);
+  }
+
+  function suggestSlipsFromPool(pool) {
+    const scored = [];
+    const maxN = Math.min(6, pool.length);
+    for (let n = 2; n <= maxN; n++) {
+      for (const idxs of combinations(pool.length, n)) {
+        const picks = idxs.map((i) => pool[i]);
+        const probs = picks.map((p) => Number(p.fair_prob));
+        const ranked = evaluateSlips(probs);
+        if (!ranked.length) continue;
+        const best = ranked[0];
+        scored.push({
+          picks,
+          keys: picks.map((p) => edgeKey(p)),
+          probs,
+          label: best.label,
+          ev: best.ev,
+          expected: best.expected,
+          pCash: best.pCash,
+        });
+      }
+    }
+    scored.sort((a, b) => b.ev - a.ev);
+    const out = [];
+    for (const s of scored) {
+      if (out.length >= SUGGEST_TOP_N) break;
+      const keySet = new Set(s.keys);
+      const tooSimilar = out.some((o) => {
+        if (o.keys.length !== s.keys.length) return false;
+        const shared = o.keys.filter((k) => keySet.has(k)).length;
+        return shared >= s.keys.length - 1;
+      });
+      if (tooSimilar) continue;
+      out.push(s);
+    }
+    return out;
+  }
+
+  function formatSuggestPick(r) {
+    const side = String(r.side || "").trim();
+    const line = fmtLine(r.pp_line);
+    const mkt = prettyMarket(r.market);
+    return `${r.player} ${side} ${line} ${mkt}`;
+  }
+
+  function useSuggestedSlip(suggestion) {
+    selectedKeys.clear();
+    for (const k of suggestion.keys.slice(0, 6)) selectedKeys.add(k);
+    if (els.slipProbs) {
+      els.slipProbs.value = suggestion.probs.map((p) => Number(p).toFixed(3)).join(",");
+    }
+    render();
+    renderSlip(suggestion.probs.slice(0, 6));
+    if (els.slipStatus) {
+      els.slipStatus.textContent =
+        `Loaded suggested ${suggestion.label} (${suggestion.keys.length} picks) · ` +
+        `EV ${suggestion.ev >= 0 ? "+" : ""}${suggestion.ev.toFixed(4)} (independence assumed)`;
+    }
+    const advisor = document.getElementById("slipAdvisor");
+    if (advisor && typeof advisor.scrollIntoView === "function") {
+      advisor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  function renderSuggestions(list, meta) {
+    if (!els.suggestBody) return;
+    els.suggestBody.innerHTML = "";
+    if (els.suggestStatus) {
+      if (!list || !list.length) {
+        els.suggestStatus.textContent =
+          meta ||
+          "No suggestions — need ≥2 filtered non-junk rows with book probs.";
+        return;
+      }
+      els.suggestStatus.textContent = meta || "";
+    }
+    const frag = document.createDocumentFragment();
+    list.forEach((s, i) => {
+      const tr = document.createElement("tr");
+      if (i === 0) tr.classList.add("slip-best");
+      const picksHtml = s.picks
+        .map((p) => `<strong>${escapeHtml(formatSuggestPick(p))}</strong>`)
+        .join(" · ");
+      tr.innerHTML = `
+        <td>${escapeHtml(s.label)}</td>
+        <td class="num">${s.ev >= 0 ? "+" : ""}${s.ev.toFixed(4)}</td>
+        <td class="suggest-picks">${picksHtml}</td>
+        <td><button type="button" class="btn btn-secondary btn-use-suggest" data-suggest-idx="${i}">Use these</button></td>
+      `;
+      frag.appendChild(tr);
+    });
+    els.suggestBody.appendChild(frag);
+    els.suggestBody.querySelectorAll("button[data-suggest-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.getAttribute("data-suggest-idx"));
+        const s = list[idx];
+        if (s) useSuggestedSlip(s);
+      });
+    });
+  }
+
+  function runSuggestSlips() {
+    const rows = filteredRows();
+    const pool = suggestCandidatePool(rows);
+    if (pool.length < 2) {
+      renderSuggestions([], `Need ≥2 non-junk ${platformLabel(activePlatform())} rows with book probs in the current filter (pool=${pool.length}).`);
+      return;
+    }
+    const suggestions = suggestSlipsFromPool(pool);
+    const meta =
+      `From ${rows.length} filtered → pool ${pool.length} (top by edge, junk skipped) → ` +
+      `${suggestions.length} diverse suggestions · independence assumed; payouts approximate`;
+    renderSuggestions(suggestions, meta);
+  }
+
   function renderSlip(probs) {
     if (!els.slipBody) return;
     els.slipBody.innerHTML = "";
@@ -940,6 +1081,12 @@
       }
       if (els.slipProbs) els.slipProbs.value = probs.map((p) => p.toFixed(3)).join(",");
       renderSlip(probs.slice(0, 6));
+    });
+  }
+
+  if (els.slipSuggest) {
+    els.slipSuggest.addEventListener("click", () => {
+      runSuggestSlips();
     });
   }
 

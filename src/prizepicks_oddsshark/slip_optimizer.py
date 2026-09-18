@@ -166,3 +166,149 @@ def probs_from_board_edges(
     if len(selected) > 6:
         selected = selected[:6]
     return [float(e[prob_key]) for e in selected]
+
+
+# --- Auto-suggest from board edges (junk filter + combo search) ---
+
+# Skip obvious bad DFS↔book matches (tunable). Documented in README.
+JUNK_MAX_EDGE_PCT: float = 15.0
+JUNK_MAX_ABS_LINE_DIFF: float = 5.0
+DEFAULT_SUGGEST_POOL: int = 16
+DEFAULT_SUGGEST_TOP: int = 6
+
+
+def is_junk_edge(edge: dict[str, Any]) -> bool:
+    """True if the row lacks a usable fair_prob or looks like a bad match.
+
+    Rules (OR):
+    - fair_prob missing / not finite / not in (0, 1)
+    - edge_pct > JUNK_MAX_EDGE_PCT (default 15)
+    - |line_diff| > JUNK_MAX_ABS_LINE_DIFF (default 5)
+    """
+    try:
+        fp = float(edge["fair_prob"]) if edge.get("fair_prob") is not None else float("nan")
+    except (TypeError, ValueError):
+        return True
+    if not (0.0 < fp < 1.0):
+        return True
+    try:
+        ep = float(edge.get("edge_pct") or 0.0)
+    except (TypeError, ValueError):
+        ep = 0.0
+    if ep > JUNK_MAX_EDGE_PCT:
+        return True
+    try:
+        ld = edge.get("line_diff")
+        if ld is not None and abs(float(ld)) > JUNK_MAX_ABS_LINE_DIFF:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
+
+
+def _edge_platform(edge: dict[str, Any]) -> str:
+    return str(edge.get("platform") or "prizepicks").lower().strip()
+
+
+def _edge_key(edge: dict[str, Any]) -> str:
+    return "|".join(
+        str(x)
+        for x in (
+            edge.get("platform") or "prizepicks",
+            edge.get("event_id"),
+            edge.get("player"),
+            edge.get("market"),
+            edge.get("side"),
+            edge.get("pp_line"),
+            edge.get("tier"),
+        )
+    )
+
+
+def candidate_pool_from_edges(
+    edges: Iterable[dict[str, Any]],
+    *,
+    platform: str | None = None,
+    pool_size: int = DEFAULT_SUGGEST_POOL,
+) -> list[dict[str, Any]]:
+    """Top-K by edge_pct among non-junk edges with fair_prob (optional platform filter)."""
+    plat = (platform or "").lower().strip() or None
+    rows: list[dict[str, Any]] = []
+    for e in edges:
+        if not isinstance(e, dict):
+            continue
+        if plat and plat != "both" and _edge_platform(e) != plat:
+            continue
+        if is_junk_edge(e):
+            continue
+        rows.append(e)
+    rows.sort(key=lambda e: float(e.get("edge_pct") or 0), reverse=True)
+    k = max(2, min(int(pool_size), 30))
+    return rows[:k]
+
+
+def suggest_slips_from_edges(
+    edges: Iterable[dict[str, Any]],
+    *,
+    platform: str | None = None,
+    pool_size: int = DEFAULT_SUGGEST_POOL,
+    top: int = DEFAULT_SUGGEST_TOP,
+    min_n: int = 2,
+    max_n: int = 6,
+    diversify: bool = True,
+) -> list[dict[str, Any]]:
+    """Search Power/Flex combos of size 2–6 from a top-K candidate pool.
+
+    Returns dicts with keys: label, ev, expected_payout, p_cash, n, kind, picks, probs, keys.
+    """
+    pool = candidate_pool_from_edges(edges, platform=platform, pool_size=pool_size)
+    if len(pool) < min_n:
+        return []
+
+    scored: list[dict[str, Any]] = []
+    lo = max(2, min_n)
+    hi = min(6, max_n, len(pool))
+    for n in range(lo, hi + 1):
+        for idxs in combinations(range(len(pool)), n):
+            picks = [pool[i] for i in idxs]
+            probs = [float(p["fair_prob"]) for p in picks]
+            ranked = rank_slip_types(probs)
+            if not ranked:
+                continue
+            best = ranked[0]
+            scored.append(
+                {
+                    "label": best.label,
+                    "ev": best.ev,
+                    "expected_payout": best.expected_payout,
+                    "p_cash": best.p_cash,
+                    "n": best.n,
+                    "kind": best.kind,
+                    "picks": picks,
+                    "probs": probs,
+                    "keys": [_edge_key(p) for p in picks],
+                }
+            )
+    scored.sort(key=lambda r: r["ev"], reverse=True)
+
+    limit = max(1, min(int(top), 20))
+    if not diversify:
+        return scored[:limit]
+
+    out: list[dict[str, Any]] = []
+    for s in scored:
+        if len(out) >= limit:
+            break
+        keys = set(s["keys"])
+        too_similar = False
+        for o in out:
+            if len(o["keys"]) != len(s["keys"]):
+                continue
+            shared = sum(1 for k in o["keys"] if k in keys)
+            if shared >= len(s["keys"]) - 1:
+                too_similar = True
+                break
+        if too_similar:
+            continue
+        out.append(s)
+    return out
