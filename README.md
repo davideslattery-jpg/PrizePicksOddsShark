@@ -16,6 +16,8 @@ CLI that compares **PrizePicks** and **Underdog Fantasy** player props to a spor
 - Multi-sport board: NFL, NCAAF, NBA, NCAAB, MLB, NHL (PGA skipped — Odds API outrights only, no player props)
 - **Weekly Thu cron** (NFL+NCAAF) + manual `workflow_dispatch` sport checkboxes
 - Board multi-sport checkboxes (localStorage) + Platform toggle — client-side, no extra credits
+- **+EV sniper board UX**: KPI strip, edge tier badges (Elite/Strong/Playable/Weak), market + player search + min |Line Δ| filters, quick sort chips, copy-pick, sticky dense table
+- Workflow **paid-credit knobs**: `lean` (default on), `use_full_markets`, higher `max_events_*` on manual runs (Thu cron stays lean football)
 - **Slip advisor**: Power / Flex EV ranking from pick probabilities (`pp-odds slip` + board UI)
 - Optional `--export` to CSV or board JSON (GitHub Pages under `docs/`)
 
@@ -47,11 +49,25 @@ OddsPapi free tier is limited (~250 req/mo). This CLI:
 
 Use `--lean`; prefer the **weekly Thu cron** (football) or selective manual checkboxes. Watch the printed request counter after live runs.
 
-**Credit tip (weekly football):** NFL `--max-events 16` + NCAAF `--max-events 25`, `--lean`, `--dfs both` ≈ **~125 credits/week** on The Odds API (one pull covers PrizePicks + Underdog). Other sports default to `--max-events 8` when checked on a manual run.
+**Credit tip (weekly football, free-tier safe):** NFL `--max-events 16` + NCAAF `--max-events 25`, `--lean`, `--dfs both` ≈ **~125 credits/week** on The Odds API (one pull covers PrizePicks + Underdog). Other sports default to `--max-events 10` when checked on a manual run.
+
+**Paid credits recommended settings**
+
+When you have paid Odds API credits, use a **manual** Actions run (do not rely on raising the Thu cron blindly):
+
+| Input | Recommended (paid) | Notes |
+|-------|--------------------|-------|
+| `lean` | `false` | Or leave lean on and set `use_full_markets=true` |
+| `use_full_markets` | `true` | Omits `--lean` so richer prop markets are pulled |
+| `max_events_nfl` | `17` | ~full NFL slate |
+| `max_events_ncaaf` | `40` | Broader college coverage |
+| `max_events_other` | `12` | Shared cap for NBA / NCAAB / MLB / NHL (no separate `max_events_nba`) |
+| Sports checkboxes | As needed | Enable NBA etc. only when you want them |
+| Refresh cadence | More frequent manual runs | Thu cron stays **lean football** so credits are not burned on autopilot |
 
 **Board refresh modes:**
-- **Schedule** `0 15 * * 4` (Thu 8am America/Phoenix / MST year-round): NFL + NCAAF only, higher max-events, lean, dfs both.
-- **Manual** Actions → Run workflow: boolean sport checkboxes (NFL/NCAAF/NBA/NCAAB/MLB/NHL); if none checked, defaults to NFL+NCAAF. PGA is not offered (no prop markets).
+- **Schedule** `0 15 * * 4` (Thu 8am America/Phoenix / MST year-round): NFL + NCAAF only, lean, dfs both — credit-safe baseline.
+- **Manual** Actions → Run workflow: sport checkboxes + `lean` / `use_full_markets` / max-events knobs; if no sports checked, defaults to NFL+NCAAF. PGA is not offered (no prop markets).
 - Commence-time Thu–Mon filter is **not** applied (messy across providers); Thu-morning cron + max-events approximates the football slate.
 
 ## Usage
@@ -87,7 +103,7 @@ pp-odds slip --probs 0.55,0.58,0.52
 pp-odds slip --from-board docs/data/edges.json --top 4
 ```
 
-On the Pages board: use the **Platform** toggle and **Sports** multi-checkboxes (persisted in localStorage as `pp-odds-dfs-platform` / `pp-odds-sport-filters`), check 2–6 rows from the active platform (or paste probs) → **Rank slips**. Highest EV is highlighted. Toggling platform/sports does not re-fetch odds or spend credits. Default: all sports present in `edges.json` are checked.
+On the Pages board: use **Platform**, **Sports**, **Markets**, player search, min edge %, and min |Line Δ| (persisted under `pp-odds-*` localStorage keys), then check 2–6 rows (or paste probs) → **Rank slips**. Quick sort chips (Top edge / Biggest line gap / Player A–Z) and **Copy** per row support a filter → ranked list → act workflow. Highest EV is highlighted. Client-side filters do not re-fetch odds or spend credits. Default: all sports/markets present in `edges.json` are checked.
 
 **Independence assumption:** correlated teammates/games are not modeled. Research only.
 
@@ -162,7 +178,7 @@ All tests run **offline** (no API key / no network).
 
 1. **Enable Pages** — Settings → Pages → Deploy from `main` / `/docs`
 2. **Secret** — Actions secret `ODDS_API_KEY` (The Odds API). Optional: `ODDSPAPI_API_KEY`.
-3. **Refresh** — weekly Thu cron (NFL+NCAAF) or **Actions → Update edges board → Run workflow** (pick sports via checkboxes)
+3. **Refresh** — weekly Thu cron (NFL+NCAAF lean) or **Actions → Update edges board → Run workflow** (sports + lean / full markets / max-events; see paid-credits table above)
 
 The workflow fetches each selected sport with its own max-events, merges into one `docs/data/edges.json`, and commits only when it changes (`[skip ci]`).
 
