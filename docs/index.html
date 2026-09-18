@@ -133,16 +133,43 @@
         <h3>Suggested slips</h3>
         <p class="slip-note">
           Auto-picks best 2–6 leg Power/Flex combos from the <strong>currently filtered</strong> board
-          (top edges by EV). Skips junk matches (edge &gt; 15% or |Line Δ| &gt; 5) and rows without book probs.
+          (top ~16 by edge). Skips junk matches (edge &gt; 15% or |Line Δ| &gt; 5) and rows without book probs.
           Same independence / payout caveats as above.
+          <strong>Sharpe</strong> = risk-adjusted EV: EV ÷ σ(profit) under independence (profit = payout − 1).
         </p>
+        <div class="sort-chips suggest-rank-chips" id="suggestRankChips" role="group" aria-label="Suggestion ranking">
+          <button type="button" class="chip" data-suggest-rank="ev" title="Rank by expected value">By EV</button>
+          <button type="button" class="chip active" data-suggest-rank="sharpe" title="Rank by EV / σ(profit)">By Sharpe</button>
+        </div>
         <p id="suggestStatus" class="dim"></p>
+        <div class="suggest-size-block" id="suggestSizeBlock">
+          <h4 class="suggest-subhead">Best by size (3–6)</h4>
+          <p class="dim suggest-size-note">Best Power <em>or</em> Flex for each leg count under the active metric.</p>
+          <div class="table-wrap slip-table-wrap">
+            <table id="suggestSizeTable">
+              <thead>
+                <tr>
+                  <th>Slip</th>
+                  <th>EV / $1</th>
+                  <th>Sharpe</th>
+                  <th>P(cash)</th>
+                  <th>Picks</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="suggestSizeBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <h4 class="suggest-subhead">Ranked suggestions</h4>
         <div class="table-wrap slip-table-wrap">
           <table id="suggestTable">
             <thead>
               <tr>
                 <th>Slip</th>
                 <th>EV / $1</th>
+                <th>Sharpe</th>
+                <th>P(cash)</th>
                 <th>Picks</th>
                 <th></th>
               </tr>

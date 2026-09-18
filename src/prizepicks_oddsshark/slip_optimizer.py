@@ -1,14 +1,17 @@
-"""PrizePicks Power / Flex slip EV recommender (independence assumption).
+"""PrizePicks Power / Flex slip EV + Sharpe recommender (independence assumption).
 
 Payout multipliers are approximate Player Pick values from PrizePicks help docs;
 the live app can change them. Personal research only.
+
+Sharpe-like score = EV / σ(profit) where profit = payout − 1 under independence.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 from itertools import combinations
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Literal, Sequence
 
 # Approximate Power multipliers (all must hit) for n picks → payout multiple of stake.
 POWER_MULTIPLIERS: dict[int, float] = {
@@ -41,6 +44,11 @@ SLIP_TYPES: tuple[tuple[int, str], ...] = (
     (6, "power"),
 )
 
+# Guard tiny σ so Sharpe does not explode; treat below floor as unscorable (0).
+SHARPE_SIGMA_FLOOR: float = 1e-9
+
+RankMetric = Literal["ev", "sharpe"]
+
 
 @dataclass(frozen=True)
 class SlipEV:
@@ -52,6 +60,8 @@ class SlipEV:
     p_cash: float  # any paying tier
     p_max: float  # max tier (all hit for power; n/n for flex)
     multiplier_max: float
+    sharpe: float = 0.0  # EV / σ(profit); 0 if σ≈0
+    sigma: float = 0.0  # σ(profit)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -72,6 +82,15 @@ def _prob_exactly_k_hits(probs: Sequence[float], k: int) -> float:
     return total
 
 
+def _sharpe_from_moments(ev: float, e_profit_sq: float) -> tuple[float, float]:
+    """Return (sharpe, sigma) from E[profit]=ev and E[profit²]."""
+    var = max(e_profit_sq - ev * ev, 0.0)
+    sigma = math.sqrt(var)
+    if sigma < SHARPE_SIGMA_FLOOR:
+        return 0.0, sigma
+    return ev / sigma, sigma
+
+
 def power_ev(probs: Sequence[float]) -> SlipEV:
     n = len(probs)
     if n not in POWER_MULTIPLIERS:
@@ -81,15 +100,22 @@ def power_ev(probs: Sequence[float]) -> SlipEV:
     for p in probs:
         p_all *= float(p)
     expected = p_all * mult
+    ev = expected - 1.0
+    # Two-point: hit → mult−1, miss → −1
+    profit_hit = mult - 1.0
+    e_sq = p_all * (profit_hit * profit_hit) + (1.0 - p_all) * 1.0
+    sharpe, sigma = _sharpe_from_moments(ev, e_sq)
     return SlipEV(
         n=n,
         kind="power",
         label=f"{n} Power",
-        ev=expected - 1.0,
+        ev=ev,
         expected_payout=expected,
         p_cash=p_all,
         p_max=p_all,
         multiplier_max=mult,
+        sharpe=sharpe,
+        sigma=sigma,
     )
 
 
@@ -100,21 +126,29 @@ def flex_ev(probs: Sequence[float]) -> SlipEV:
     pay = FLEX_PAYOUTS[n]
     expected = 0.0
     p_cash = 0.0
-    for k, mult in pay.items():
+    e_sq = 0.0
+    for k in range(0, n + 1):
         pk = _prob_exactly_k_hits(probs, k)
+        mult = float(pay.get(k, 0.0))
         expected += pk * mult
         if mult > 0:
             p_cash += pk
+        profit = mult - 1.0
+        e_sq += pk * (profit * profit)
+    ev = expected - 1.0
+    sharpe, sigma = _sharpe_from_moments(ev, e_sq)
     p_max = _prob_exactly_k_hits(probs, n)
     return SlipEV(
         n=n,
         kind="flex",
         label=f"{n} Flex",
-        ev=expected - 1.0,
+        ev=ev,
         expected_payout=expected,
         p_cash=p_cash,
         p_max=p_max,
         multiplier_max=float(pay.get(n, 0.0)),
+        sharpe=sharpe,
+        sigma=sigma,
     )
 
 
@@ -127,8 +161,8 @@ def evaluate_slip(probs: Sequence[float], kind: str) -> SlipEV:
     raise ValueError(f"Unknown slip kind: {kind}")
 
 
-def rank_slip_types(probs: Sequence[float]) -> list[SlipEV]:
-    """Rank all slip types that match len(probs) by EV descending."""
+def rank_slip_types(probs: Sequence[float], *, rank: RankMetric = "ev") -> list[SlipEV]:
+    """Rank all slip types that match len(probs) by EV or Sharpe descending."""
     n = len(probs)
     if n < 2 or n > 6:
         raise ValueError("Need between 2 and 6 pick probabilities")
@@ -140,12 +174,13 @@ def rank_slip_types(probs: Sequence[float]) -> list[SlipEV]:
         if sn != n:
             continue
         results.append(evaluate_slip(cleaned, kind))
-    results.sort(key=lambda r: r.ev, reverse=True)
+    key = (lambda r: r.sharpe) if rank == "sharpe" else (lambda r: r.ev)
+    results.sort(key=key, reverse=True)
     return results
 
 
-def recommend_best(probs: Sequence[float]) -> SlipEV:
-    ranked = rank_slip_types(probs)
+def recommend_best(probs: Sequence[float], *, rank: RankMetric = "ev") -> SlipEV:
+    ranked = rank_slip_types(probs, rank=rank)
     if not ranked:
         raise ValueError("No slip types for this pick count")
     return ranked[0]
@@ -175,6 +210,7 @@ JUNK_MAX_EDGE_PCT: float = 15.0
 JUNK_MAX_ABS_LINE_DIFF: float = 5.0
 DEFAULT_SUGGEST_POOL: int = 16
 DEFAULT_SUGGEST_TOP: int = 6
+BEST_BY_N_SIZES: tuple[int, ...] = (3, 4, 5, 6)
 
 
 def is_junk_edge(edge: dict[str, Any]) -> bool:
@@ -247,54 +283,34 @@ def candidate_pool_from_edges(
     return rows[:k]
 
 
-def suggest_slips_from_edges(
-    edges: Iterable[dict[str, Any]],
-    *,
-    platform: str | None = None,
-    pool_size: int = DEFAULT_SUGGEST_POOL,
-    top: int = DEFAULT_SUGGEST_TOP,
-    min_n: int = 2,
-    max_n: int = 6,
-    diversify: bool = True,
-) -> list[dict[str, Any]]:
-    """Search Power/Flex combos of size 2–6 from a top-K candidate pool.
+def _score_key(rank: RankMetric):
+    if rank == "sharpe":
+        return lambda r: float(r.get("sharpe") or 0.0)
+    return lambda r: float(r.get("ev") or 0.0)
 
-    Returns dicts with keys: label, ev, expected_payout, p_cash, n, kind, picks, probs, keys.
-    """
-    pool = candidate_pool_from_edges(edges, platform=platform, pool_size=pool_size)
-    if len(pool) < min_n:
-        return []
 
-    scored: list[dict[str, Any]] = []
-    lo = max(2, min_n)
-    hi = min(6, max_n, len(pool))
-    for n in range(lo, hi + 1):
-        for idxs in combinations(range(len(pool)), n):
-            picks = [pool[i] for i in idxs]
-            probs = [float(p["fair_prob"]) for p in picks]
-            ranked = rank_slip_types(probs)
-            if not ranked:
-                continue
-            best = ranked[0]
-            scored.append(
-                {
-                    "label": best.label,
-                    "ev": best.ev,
-                    "expected_payout": best.expected_payout,
-                    "p_cash": best.p_cash,
-                    "n": best.n,
-                    "kind": best.kind,
-                    "picks": picks,
-                    "probs": probs,
-                    "keys": [_edge_key(p) for p in picks],
-                }
-            )
-    scored.sort(key=lambda r: r["ev"], reverse=True)
+def _suggestion_row(
+    picks: list[dict[str, Any]],
+    probs: list[float],
+    slip: SlipEV,
+) -> dict[str, Any]:
+    return {
+        "label": slip.label,
+        "ev": slip.ev,
+        "sharpe": slip.sharpe,
+        "sigma": slip.sigma,
+        "expected_payout": slip.expected_payout,
+        "p_cash": slip.p_cash,
+        "p_max": slip.p_max,
+        "n": slip.n,
+        "kind": slip.kind,
+        "picks": picks,
+        "probs": probs,
+        "keys": [_edge_key(p) for p in picks],
+    }
 
-    limit = max(1, min(int(top), 20))
-    if not diversify:
-        return scored[:limit]
 
+def _diversify_top(scored: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for s in scored:
         if len(out) >= limit:
@@ -312,3 +328,65 @@ def suggest_slips_from_edges(
             continue
         out.append(s)
     return out
+
+
+def suggest_slips_from_edges(
+    edges: Iterable[dict[str, Any]],
+    *,
+    platform: str | None = None,
+    pool_size: int = DEFAULT_SUGGEST_POOL,
+    top: int = DEFAULT_SUGGEST_TOP,
+    min_n: int = 2,
+    max_n: int = 6,
+    diversify: bool = True,
+    rank: RankMetric = "ev",
+) -> dict[str, Any]:
+    """Search Power/Flex combos of size 2–6 from a top-K candidate pool.
+
+    Scores every (combo, Power|Flex) pair. Returns::
+
+        {
+          "ranked": [...],      # top suggestions by ``rank`` (ev|sharpe)
+          "best_by_n": [...],   # best Power-or-Flex for n in 3,4,5,6 by ``rank``
+          "rank": "ev"|"sharpe",
+        }
+
+    Each suggestion dict includes: label, ev, sharpe, expected_payout, p_cash, p_max,
+    n, kind, picks, probs, keys.
+    """
+    if rank not in ("ev", "sharpe"):
+        raise ValueError("rank must be 'ev' or 'sharpe'")
+
+    pool = candidate_pool_from_edges(edges, platform=platform, pool_size=pool_size)
+    empty = {"ranked": [], "best_by_n": [], "rank": rank}
+    if len(pool) < min_n:
+        return empty
+
+    scored: list[dict[str, Any]] = []
+    lo = max(2, min_n)
+    hi = min(6, max_n, len(pool))
+    for n in range(lo, hi + 1):
+        for idxs in combinations(range(len(pool)), n):
+            picks = [pool[i] for i in idxs]
+            probs = [float(p["fair_prob"]) for p in picks]
+            for sn, kind in SLIP_TYPES:
+                if sn != n:
+                    continue
+                slip = evaluate_slip(probs, kind)
+                scored.append(_suggestion_row(picks, probs, slip))
+
+    key_fn = _score_key(rank)
+    scored.sort(key=key_fn, reverse=True)
+
+    limit = max(1, min(int(top), 20))
+    ranked = _diversify_top(scored, limit) if diversify else scored[:limit]
+
+    # Best-by-size: absolute best Power-or-Flex for each n in 3..6 (no diversify).
+    best_by_n: list[dict[str, Any]] = []
+    for n in BEST_BY_N_SIZES:
+        candidates = [s for s in scored if s["n"] == n]
+        if not candidates:
+            continue
+        best_by_n.append(max(candidates, key=key_fn))
+
+    return {"ranked": ranked, "best_by_n": best_by_n, "rank": rank}

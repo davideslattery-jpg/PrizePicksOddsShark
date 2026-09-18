@@ -322,3 +322,14 @@ tbody tr:hover { background: var(--row-hover); }
 .suggest-picks { font-size: 0.82rem; line-height: 1.35; color: var(--muted); }
 .suggest-picks strong { color: var(--text); font-weight: 600; }
 .btn-use-suggest { font-size: 0.78rem; padding: 0.25rem 0.55rem; white-space: nowrap; }
+
+.suggest-subhead {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.suggest-rank-chips { margin: 0.5rem 0 0.35rem; }
+.suggest-size-block { margin-top: 0.35rem; }
+.suggest-size-note { margin: 0 0 0.35rem; font-size: 0.8rem; }
+#suggestSizeTable, #suggestTable { min-width: 640px; }

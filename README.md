@@ -18,7 +18,7 @@ CLI that compares **PrizePicks** and **Underdog Fantasy** player props to a spor
 - Board multi-sport checkboxes (localStorage) + Platform toggle — client-side, no extra credits
 - **+EV sniper board UX**: KPI strip, edge tier badges (Elite/Strong/Playable/Weak), market + player search + min |Line Δ| filters, quick sort chips, copy-pick, sticky dense table
 - Workflow **paid-credit knobs**: `lean` (default on), `use_full_markets`, higher `max_events_*` on manual runs (Thu cron stays lean football)
-- **Slip advisor**: Power / Flex EV ranking + **Suggest slips** auto-combos from filtered board (`pp-odds slip` + board UI)
+- **Slip advisor**: Power / Flex EV + Sharpe ranking + **Suggest slips** (By EV / By Sharpe + best-by-size 3–6) from filtered board (`pp-odds slip` + board UI)
 - Optional `--export` to CSV or board JSON (GitHub Pages under `docs/`)
 
 ## Setup
@@ -102,9 +102,12 @@ Approximate PrizePicks **Power** / **Flex** EV given independent hit probabiliti
 pp-odds slip --probs 0.55,0.58,0.52
 pp-odds slip --from-board docs/data/edges.json --top 4
 pp-odds slip --suggest-from-board docs/data/edges.json --platform prizepicks --top 5
+pp-odds slip --suggest-from-board docs/data/edges.json --rank sharpe --top 6
 ```
 
-On the Pages board: use **Platform**, **Sports**, **Markets**, player search, min edge %, and min |Line Δ| (persisted under `pp-odds-*` localStorage keys), then check 2–6 rows (or paste probs) → **Rank slips**. Or click **Suggest slips** to auto-search the best 2–6 pick Power/Flex combos by EV from the **currently filtered** rows (top ~16 by edge, skipping junk matches: edge > 15% or |Line Δ| > 5, and rows without `fair_prob`). Suggestions list slip type, EV/$1, and picks; **Use these** checks those rows, fills probs, and re-ranks. Quick sort chips (Top edge / Biggest line gap / Player A–Z) and **Copy** per row support a filter → ranked list → act workflow. Highest EV is highlighted. Client-side filters / suggestions do not re-fetch odds or spend credits. Default: all sports/markets present in `edges.json` are checked.
+On the Pages board: use **Platform**, **Sports**, **Markets**, player search, min edge %, and min |Line Δ| (persisted under `pp-odds-*` localStorage keys), then check 2–6 rows (or paste probs) → **Rank slips**. Or click **Suggest slips** to auto-search Power/Flex combos from the **currently filtered** rows (top ~16 by edge, skipping junk matches: edge > 15% or |Line Δ| > 5, and rows without `fair_prob`). Toggle **By EV** / **By Sharpe** chips (default Sharpe). Tables show slip type, EV/$1, Sharpe, P(cash), and picks; a **Best by size** strip always lists the best 3 / 4 / 5 / 6 (Power or Flex) under the active metric. **Use these** checks those rows, fills probs, and re-ranks. CLI: `--rank ev|sharpe` plus best-by-n 3–6 in the output. Quick sort chips (Top edge / Biggest line gap / Player A–Z) and **Copy** per row support a filter → ranked list → act workflow. Client-side filters / suggestions do not re-fetch odds or spend credits. Default: all sports/markets present in `edges.json` are checked.
+
+**Sharpe (risk-adjusted):** `EV / σ(profit)` where `profit = payout − 1`, under independence. Power is a two-point distribution (hit → mult−1, miss → −1); Flex uses hit-count payout tiers. Tiny σ is floored so Sharpe stays finite.
 
 **Independence assumption:** correlated teammates/games are not modeled. Research only.
 
