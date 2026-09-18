@@ -353,6 +353,11 @@ def slip_cmd(
         "--pool-size",
         help="Candidate pool size (top K by edge) for --suggest-from-board",
     ),
+    rank: str = typer.Option(
+        "ev",
+        "--rank",
+        help="With --suggest-from-board: rank by 'ev' or 'sharpe' (risk-adjusted)",
+    ),
 ) -> None:
     """Rank Power/Flex slip types by EV given independent pick probabilities."""
     load_dotenv()
@@ -367,31 +372,66 @@ def slip_cmd(
         if not isinstance(edges, list):
             console.print("[red]Board JSON missing edges[][/red]")
             raise typer.Exit(2)
-        suggestions = suggest_slips_from_edges(
+        rank_key = (rank or "ev").lower().strip()
+        if rank_key not in ("ev", "sharpe"):
+            console.print("[red]--rank must be 'ev' or 'sharpe'[/red]")
+            raise typer.Exit(2)
+        result = suggest_slips_from_edges(
             edges,
             platform=platform,
             pool_size=pool_size,
             top=max(1, min(top, 20)),
+            rank=rank_key,  # type: ignore[arg-type]
         )
+        suggestions = result["ranked"]
+        best_by_n = result["best_by_n"]
         plat = platform.lower().strip() or "prizepicks"
         console.print(
-            f"[bold]Suggest slips[/bold] platform={plat}  "
+            f"[bold]Suggest slips[/bold] platform={plat}  rank={rank_key}  "
             f"pool≤{pool_size}  showing {len(suggestions)}  "
             f"(junk: edge>15% or |line Δ|>5; independence assumed)"
         )
-        if not suggestions:
+        if not suggestions and not best_by_n:
             console.print("[yellow]No suggestions (need ≥2 non-junk edges with fair_prob).[/yellow]")
             raise typer.Exit(0)
-        table = Table(show_header=True, header_style="bold")
-        for col in ("#", "Slip", "EV/$1", "Picks"):
-            table.add_column(col)
-        for i, s in enumerate(suggestions, start=1):
-            pick_txt = "; ".join(
+
+        def _pick_txt(s: dict) -> str:
+            return "; ".join(
                 f"{p.get('player')} {p.get('side')} {p.get('pp_line')} {p.get('market')}"
                 for p in s["picks"]
             )
-            table.add_row(str(i), s["label"], f"{s['ev']:+.4f}", pick_txt)
-        console.print(table)
+
+        if best_by_n:
+            console.print(f"[bold]Best by size[/bold] (n=3–6, by {rank_key})")
+            size_table = Table(show_header=True, header_style="bold")
+            for col in ("n", "Slip", "EV/$1", "Sharpe", "P(cash)", "Picks"):
+                size_table.add_column(col)
+            for s in best_by_n:
+                size_table.add_row(
+                    str(s["n"]),
+                    s["label"],
+                    f"{s['ev']:+.4f}",
+                    f"{s['sharpe']:+.4f}",
+                    f"{s['p_cash']:.1%}",
+                    _pick_txt(s),
+                )
+            console.print(size_table)
+
+        if suggestions:
+            console.print(f"[bold]Ranked suggestions[/bold] (by {rank_key})")
+            table = Table(show_header=True, header_style="bold")
+            for col in ("#", "Slip", "EV/$1", "Sharpe", "P(cash)", "Picks"):
+                table.add_column(col)
+            for i, s in enumerate(suggestions, start=1):
+                table.add_row(
+                    str(i),
+                    s["label"],
+                    f"{s['ev']:+.4f}",
+                    f"{s['sharpe']:+.4f}",
+                    f"{s['p_cash']:.1%}",
+                    _pick_txt(s),
+                )
+            console.print(table)
         return
 
     values: list[float]
@@ -436,7 +476,7 @@ def slip_cmd(
         f"(independence assumed; payouts approximate)"
     )
     table = Table(show_header=True, header_style="bold")
-    for col in ("Rank", "Slip", "EV/$1", "E[payout]", "P(cash)", "P(max)", "Max mult"):
+    for col in ("Rank", "Slip", "EV/$1", "Sharpe", "E[payout]", "P(cash)", "P(max)", "Max mult"):
         table.add_column(col)
     for i, row in enumerate(ranked, start=1):
         marker = " ★" if i == 1 else ""
@@ -444,6 +484,7 @@ def slip_cmd(
             str(i),
             f"{row.label}{marker}",
             f"{row.ev:+.4f}",
+            f"{row.sharpe:+.4f}",
             f"{row.expected_payout:.4f}",
             f"{row.p_cash:.1%}",
             f"{row.p_max:.1%}",
@@ -453,7 +494,7 @@ def slip_cmd(
     best = ranked[0]
     console.print(
         f"[green]Recommended:[/green] {best.label}  "
-        f"EV={best.ev:+.4f} per $1  P(cash)={best.p_cash:.1%}"
+        f"EV={best.ev:+.4f} per $1  Sharpe={best.sharpe:+.4f}  P(cash)={best.p_cash:.1%}"
     )
 
 

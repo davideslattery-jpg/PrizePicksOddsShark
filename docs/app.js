@@ -33,12 +33,16 @@
     slipBody: document.getElementById("slipBody"),
     suggestStatus: document.getElementById("suggestStatus"),
     suggestBody: document.getElementById("suggestBody"),
+    suggestSizeBody: document.getElementById("suggestSizeBody"),
+    suggestRankChips: document.getElementById("suggestRankChips"),
   };
 
   let board = null;
   let sortKey = "edge_pct";
   let sortDir = -1;
   const selectedKeys = new Set();
+  let suggestRank = "sharpe"; // "ev" | "sharpe"
+  let lastSuggestResult = null; // { ranked, bestByN, meta }
 
   const DFS_STORAGE_KEY = "pp-odds-dfs-platform";
   const SPORT_STORAGE_KEY = "pp-odds-sport-filters";
@@ -571,6 +575,16 @@
     return total;
   }
 
+  const SHARPE_SIGMA_FLOOR = 1e-9;
+  const BEST_BY_N_SIZES = [3, 4, 5, 6];
+
+  function sharpeFromMoments(ev, eProfitSq) {
+    const variance = Math.max(eProfitSq - ev * ev, 0);
+    const sigma = Math.sqrt(variance);
+    if (sigma < SHARPE_SIGMA_FLOOR) return { sharpe: 0, sigma };
+    return { sharpe: ev / sigma, sigma };
+  }
+
   function evaluateSlips(probs) {
     const n = probs.length;
     const rows = [];
@@ -578,9 +592,17 @@
       const pAll = probs.reduce((a, b) => a * b, 1);
       const mult = POWER_MULT[n];
       const expected = pAll * mult;
+      const ev = expected - 1;
+      const profitHit = mult - 1;
+      const eSq = pAll * profitHit * profitHit + (1 - pAll) * 1;
+      const { sharpe, sigma } = sharpeFromMoments(ev, eSq);
       rows.push({
         label: `${n} Power`,
-        ev: expected - 1,
+        kind: "power",
+        n,
+        ev,
+        sharpe,
+        sigma,
         expected,
         pCash: pAll,
         pMax: pAll,
@@ -591,15 +613,24 @@
       const pay = FLEX_PAY[n];
       let expected = 0;
       let pCash = 0;
-      for (const [kStr, mult] of Object.entries(pay)) {
-        const k = Number(kStr);
+      let eSq = 0;
+      for (let k = 0; k <= n; k++) {
         const pk = probExactlyK(probs, k);
+        const mult = pay[k] != null ? pay[k] : 0;
         expected += pk * mult;
         if (mult > 0) pCash += pk;
+        const profit = mult - 1;
+        eSq += pk * profit * profit;
       }
+      const ev = expected - 1;
+      const { sharpe, sigma } = sharpeFromMoments(ev, eSq);
       rows.push({
         label: `${n} Flex`,
-        ev: expected - 1,
+        kind: "flex",
+        n,
+        ev,
+        sharpe,
+        sigma,
         expected,
         pCash,
         pMax: probExactlyK(probs, n),
@@ -628,41 +659,66 @@
       .slice(0, SUGGEST_POOL_K);
   }
 
-  function suggestSlipsFromPool(pool) {
-    const scored = [];
-    const maxN = Math.min(6, pool.length);
-    for (let n = 2; n <= maxN; n++) {
-      for (const idxs of combinations(pool.length, n)) {
-        const picks = idxs.map((i) => pool[i]);
-        const probs = picks.map((p) => Number(p.fair_prob));
-        const ranked = evaluateSlips(probs);
-        if (!ranked.length) continue;
-        const best = ranked[0];
-        scored.push({
-          picks,
-          keys: picks.map((p) => edgeKey(p)),
-          probs,
-          label: best.label,
-          ev: best.ev,
-          expected: best.expected,
-          pCash: best.pCash,
-        });
-      }
-    }
-    scored.sort((a, b) => b.ev - a.ev);
+  function scoreKey(rank) {
+    return rank === "sharpe"
+      ? (s) => Number(s.sharpe) || 0
+      : (s) => Number(s.ev) || 0;
+  }
+
+  function diversifyTop(scored, limit) {
     const out = [];
     for (const s of scored) {
-      if (out.length >= SUGGEST_TOP_N) break;
+      if (out.length >= limit) break;
       const keySet = new Set(s.keys);
       const tooSimilar = out.some((o) => {
         if (o.keys.length !== s.keys.length) return false;
         const shared = o.keys.filter((k) => keySet.has(k)).length;
         return shared >= s.keys.length - 1;
       });
-      if (tooSimilar) continue;
-      out.push(s);
+      if (!tooSimilar) out.push(s);
     }
     return out;
+  }
+
+  function suggestSlipsFromPool(pool, rank) {
+    const scored = [];
+    const maxN = Math.min(6, pool.length);
+    for (let n = 2; n <= maxN; n++) {
+      for (const idxs of combinations(pool.length, n)) {
+        const picks = idxs.map((i) => pool[i]);
+        const probs = picks.map((p) => Number(p.fair_prob));
+        const evaluated = evaluateSlips(probs);
+        for (const slip of evaluated) {
+          scored.push({
+            picks,
+            keys: picks.map((p) => edgeKey(p)),
+            probs,
+            label: slip.label,
+            kind: slip.kind,
+            n: slip.n,
+            ev: slip.ev,
+            sharpe: slip.sharpe,
+            expected: slip.expected,
+            pCash: slip.pCash,
+            pMax: slip.pMax,
+          });
+        }
+      }
+    }
+    const keyFn = scoreKey(rank);
+    scored.sort((a, b) => keyFn(b) - keyFn(a));
+    const ranked = diversifyTop(scored, SUGGEST_TOP_N);
+    const bestByN = [];
+    for (const n of BEST_BY_N_SIZES) {
+      const candidates = scored.filter((s) => s.n === n);
+      if (!candidates.length) continue;
+      let best = candidates[0];
+      for (const c of candidates) {
+        if (keyFn(c) > keyFn(best)) best = c;
+      }
+      bestByN.push(best);
+    }
+    return { ranked, bestByN, rank };
   }
 
   function formatSuggestPick(r) {
@@ -681,9 +737,12 @@
     render();
     renderSlip(suggestion.probs.slice(0, 6));
     if (els.slipStatus) {
+      const sh = Number.isFinite(suggestion.sharpe)
+        ? ` · Sharpe ${suggestion.sharpe >= 0 ? "+" : ""}${suggestion.sharpe.toFixed(4)}`
+        : "";
       els.slipStatus.textContent =
         `Loaded suggested ${suggestion.label} (${suggestion.keys.length} picks) · ` +
-        `EV ${suggestion.ev >= 0 ? "+" : ""}${suggestion.ev.toFixed(4)} (independence assumed)`;
+        `EV ${suggestion.ev >= 0 ? "+" : ""}${suggestion.ev.toFixed(4)}${sh} (independence assumed)`;
     }
     const advisor = document.getElementById("slipAdvisor");
     if (advisor && typeof advisor.scrollIntoView === "function") {
@@ -691,18 +750,10 @@
     }
   }
 
-  function renderSuggestions(list, meta) {
-    if (!els.suggestBody) return;
-    els.suggestBody.innerHTML = "";
-    if (els.suggestStatus) {
-      if (!list || !list.length) {
-        els.suggestStatus.textContent =
-          meta ||
-          "No suggestions — need ≥2 filtered non-junk rows with book probs.";
-        return;
-      }
-      els.suggestStatus.textContent = meta || "";
-    }
+  function fillSuggestRows(tbody, list, idPrefix) {
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!list || !list.length) return;
     const frag = document.createDocumentFragment();
     list.forEach((s, i) => {
       const tr = document.createElement("tr");
@@ -710,21 +761,56 @@
       const picksHtml = s.picks
         .map((p) => `<strong>${escapeHtml(formatSuggestPick(p))}</strong>`)
         .join(" · ");
+      const sharpe = Number(s.sharpe) || 0;
+      const pCash = Number(s.pCash);
       tr.innerHTML = `
         <td>${escapeHtml(s.label)}</td>
         <td class="num">${s.ev >= 0 ? "+" : ""}${s.ev.toFixed(4)}</td>
+        <td class="num">${sharpe >= 0 ? "+" : ""}${sharpe.toFixed(4)}</td>
+        <td class="num">${Number.isFinite(pCash) ? (pCash * 100).toFixed(1) + "%" : "—"}</td>
         <td class="suggest-picks">${picksHtml}</td>
-        <td><button type="button" class="btn btn-secondary btn-use-suggest" data-suggest-idx="${i}">Use these</button></td>
+        <td><button type="button" class="btn btn-secondary btn-use-suggest" data-suggest-ref="${idPrefix}:${i}">Use these</button></td>
       `;
       frag.appendChild(tr);
     });
-    els.suggestBody.appendChild(frag);
-    els.suggestBody.querySelectorAll("button[data-suggest-idx]").forEach((btn) => {
+    tbody.appendChild(frag);
+    tbody.querySelectorAll("button[data-suggest-ref]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const idx = Number(btn.getAttribute("data-suggest-idx"));
-        const s = list[idx];
+        const ref = btn.getAttribute("data-suggest-ref") || "";
+        const [prefix, idxStr] = ref.split(":");
+        const idx = Number(idxStr);
+        const bucket =
+          prefix === "size"
+            ? lastSuggestResult?.bestByN
+            : lastSuggestResult?.ranked;
+        const s = bucket && bucket[idx];
         if (s) useSuggestedSlip(s);
       });
+    });
+  }
+
+  function renderSuggestions(result, meta) {
+    const ranked = result?.ranked || [];
+    const bestByN = result?.bestByN || [];
+    lastSuggestResult = { ranked, bestByN, meta };
+    if (els.suggestStatus) {
+      if (!ranked.length && !bestByN.length) {
+        els.suggestStatus.textContent =
+          meta ||
+          "No suggestions — need ≥2 filtered non-junk rows with book probs.";
+      } else {
+        els.suggestStatus.textContent = meta || "";
+      }
+    }
+    fillSuggestRows(els.suggestSizeBody, bestByN, "size");
+    fillSuggestRows(els.suggestBody, ranked, "rank");
+  }
+
+  function syncSuggestRankChips() {
+    if (!els.suggestRankChips) return;
+    els.suggestRankChips.querySelectorAll("[data-suggest-rank]").forEach((btn) => {
+      const key = btn.getAttribute("data-suggest-rank");
+      btn.classList.toggle("active", key === suggestRank);
     });
   }
 
@@ -732,14 +818,19 @@
     const rows = filteredRows();
     const pool = suggestCandidatePool(rows);
     if (pool.length < 2) {
-      renderSuggestions([], `Need ≥2 non-junk ${platformLabel(activePlatform())} rows with book probs in the current filter (pool=${pool.length}).`);
+      renderSuggestions(
+        { ranked: [], bestByN: [] },
+        `Need ≥2 non-junk ${platformLabel(activePlatform())} rows with book probs in the current filter (pool=${pool.length}).`
+      );
       return;
     }
-    const suggestions = suggestSlipsFromPool(pool);
+    const result = suggestSlipsFromPool(pool, suggestRank);
     const meta =
       `From ${rows.length} filtered → pool ${pool.length} (top by edge, junk skipped) → ` +
-      `${suggestions.length} diverse suggestions · independence assumed; payouts approximate`;
-    renderSuggestions(suggestions, meta);
+      `${result.ranked.length} ranked by ${suggestRank}` +
+      (result.bestByN.length ? ` · best-by-size ${result.bestByN.map((s) => s.n).join("/")}` : "") +
+      ` · independence assumed; Sharpe = EV/σ(profit)`;
+    renderSuggestions(result, meta);
   }
 
   function renderSlip(probs) {
@@ -1084,6 +1175,18 @@
     });
   }
 
+  if (els.suggestRankChips) {
+    els.suggestRankChips.querySelectorAll("[data-suggest-rank]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-suggest-rank");
+        if (key !== "ev" && key !== "sharpe") return;
+        suggestRank = key;
+        syncSuggestRankChips();
+        if (lastSuggestResult) runSuggestSlips();
+      });
+    });
+    syncSuggestRankChips();
+  }
   if (els.slipSuggest) {
     els.slipSuggest.addEventListener("click", () => {
       runSuggestSlips();
