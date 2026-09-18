@@ -93,38 +93,10 @@
       <button type="button" class="chip" data-sort-chip="player" title="Player name A–Z">Player A–Z</button>
     </div>
 
-    <div id="errorBox" class="error hidden" role="alert"></div>
-    <div id="emptyBox" class="empty hidden">
-      <p><strong>No edges above the filter for this platform (or no overlapping DFS + FanDuel props).</strong></p>
-      <p>If The Odds API free credits are exhausted, refreshes stay empty until you add <strong>paid credits</strong> and
-        <strong>Actions → Update edges board → Run workflow</strong> (try lean off / higher max-events). Slip advisor below still works with pasted probs + <em>Rank slips</em>.</p>
-      <p class="dim">Personal research only. Refresh: GitHub → Actions → Update edges board (Thu cron or Run workflow with sport checkboxes).</p>
-    </div>
-
-    <div class="table-wrap">
-      <table id="edgesTable" class="dense">
-        <thead>
-          <tr>
-            <th title="Select for slip advisor" class="chk-col">Slip</th>
-            <th data-sort="edge_pct" title="Fair book prob minus PP offered prob (percentage points)">Edge%</th>
-            <th data-sort="player">Player</th>
-            <th data-sort="market">Market</th>
-            <th data-sort="side">Side</th>
-            <th data-sort="tier">Tier</th>
-            <th data-sort="pp_line" title="DFS platform line">DFS line</th>
-            <th data-sort="book_line" title="FanDuel (book) line">Book line</th>
-            <th data-sort="line_diff" title="PP line minus book line">Line Δ</th>
-            <th data-sort="fair_prob" title="Book no-vig probability this side hits">Book prob</th>
-            <th data-sort="offered_prob" id="dfsProbHeader" title="Implied / proxy probability from DFS pricing">DFS prob</th>
-            <th data-sort="prob_delta" title="Book prob minus DFS prob (same as Edge% / 100)">Prob Δ</th>
-            <th data-sort="game">Game</th>
-            <th data-sort="sport">Sport</th>
-            <th class="copy-col" title="Copy pick to clipboard">Copy</th>
-          </tr>
-        </thead>
-        <tbody id="edgesBody"></tbody>
-      </table>
-    </div>
+    <nav class="jump-nav" aria-label="Page sections">
+      <a href="#slipAdvisor">Slip advisor</a>
+      <a href="#edgesTable">Edges</a>
+    </nav>
 
     <section class="slip" id="slipAdvisor" aria-label="Slip advisor">
       <h2>Slip advisor</h2>
@@ -180,6 +152,40 @@
         </div>
       </div>
     </section>
+
+
+    <div id="errorBox" class="error hidden" role="alert"></div>
+    <div id="emptyBox" class="empty hidden">
+      <p><strong>No edges above the filter for this platform (or no overlapping DFS + FanDuel props).</strong></p>
+      <p>If The Odds API free credits are exhausted, refreshes stay empty until you add <strong>paid credits</strong> and
+        <strong>Actions → Update edges board → Run workflow</strong> (try lean off / higher max-events). Slip advisor above still works with pasted probs + <em>Rank slips</em>.</p>
+      <p class="dim">Personal research only. Refresh: GitHub → Actions → Update edges board (Thu cron or Run workflow with sport checkboxes).</p>
+    </div>
+
+    <div class="table-wrap">
+      <table id="edgesTable" class="dense">
+        <thead>
+          <tr>
+            <th title="Select for slip advisor" class="chk-col">Slip</th>
+            <th data-sort="edge_pct" title="Fair book prob minus PP offered prob (percentage points)">Edge%</th>
+            <th data-sort="player">Player</th>
+            <th data-sort="market">Market</th>
+            <th data-sort="side">Side</th>
+            <th data-sort="tier">Tier</th>
+            <th data-sort="pp_line" title="DFS platform line">DFS line</th>
+            <th data-sort="book_line" title="FanDuel (book) line">Book line</th>
+            <th data-sort="line_diff" title="PP line minus book line">Line Δ</th>
+            <th data-sort="fair_prob" title="Book no-vig probability this side hits">Book prob</th>
+            <th data-sort="offered_prob" id="dfsProbHeader" title="Implied / proxy probability from DFS pricing">DFS prob</th>
+            <th data-sort="prob_delta" title="Book prob minus DFS prob (same as Edge% / 100)">Prob Δ</th>
+            <th data-sort="game">Game</th>
+            <th data-sort="sport">Sport</th>
+            <th class="copy-col" title="Copy pick to clipboard">Copy</th>
+          </tr>
+        </thead>
+        <tbody id="edgesBody"></tbody>
+      </table>
+    </div>
 
     <footer class="foot">
       <p>
