@@ -18,7 +18,7 @@ CLI that compares **PrizePicks** and **Underdog Fantasy** player props to a spor
 - Board multi-sport checkboxes (localStorage) + Platform toggle — client-side, no extra credits
 - **+EV sniper board UX**: KPI strip, edge tier badges (Elite/Strong/Playable/Weak), market + player search + min |Line Δ| filters, quick sort chips, copy-pick, sticky dense table
 - Workflow **paid-credit knobs**: `lean` (default on), `use_full_markets`, higher `max_events_*` on manual runs (Thu cron stays lean football)
-- **Slip advisor**: Power / Flex EV ranking from pick probabilities (`pp-odds slip` + board UI)
+- **Slip advisor**: Power / Flex EV ranking + **Suggest slips** auto-combos from filtered board (`pp-odds slip` + board UI)
 - Optional `--export` to CSV or board JSON (GitHub Pages under `docs/`)
 
 ## Setup
@@ -101,9 +101,10 @@ Approximate PrizePicks **Power** / **Flex** EV given independent hit probabiliti
 ```bash
 pp-odds slip --probs 0.55,0.58,0.52
 pp-odds slip --from-board docs/data/edges.json --top 4
+pp-odds slip --suggest-from-board docs/data/edges.json --platform prizepicks --top 5
 ```
 
-On the Pages board: use **Platform**, **Sports**, **Markets**, player search, min edge %, and min |Line Δ| (persisted under `pp-odds-*` localStorage keys), then check 2–6 rows (or paste probs) → **Rank slips**. Quick sort chips (Top edge / Biggest line gap / Player A–Z) and **Copy** per row support a filter → ranked list → act workflow. Highest EV is highlighted. Client-side filters do not re-fetch odds or spend credits. Default: all sports/markets present in `edges.json` are checked.
+On the Pages board: use **Platform**, **Sports**, **Markets**, player search, min edge %, and min |Line Δ| (persisted under `pp-odds-*` localStorage keys), then check 2–6 rows (or paste probs) → **Rank slips**. Or click **Suggest slips** to auto-search the best 2–6 pick Power/Flex combos by EV from the **currently filtered** rows (top ~16 by edge, skipping junk matches: edge > 15% or |Line Δ| > 5, and rows without `fair_prob`). Suggestions list slip type, EV/$1, and picks; **Use these** checks those rows, fills probs, and re-ranks. Quick sort chips (Top edge / Biggest line gap / Player A–Z) and **Copy** per row support a filter → ranked list → act workflow. Highest EV is highlighted. Client-side filters / suggestions do not re-fetch odds or spend credits. Default: all sports/markets present in `edges.json` are checked.
 
 **Independence assumption:** correlated teammates/games are not modeled. Research only.
 

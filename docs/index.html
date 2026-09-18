@@ -138,6 +138,7 @@
           <input id="slipProbs" type="text" placeholder="0.55,0.58,0.52" />
         </label>
         <button type="button" id="slipFromSelection" class="btn btn-secondary">Use selected rows</button>
+        <button type="button" id="slipSuggest" class="btn btn-secondary">Suggest slips</button>
         <button type="button" id="slipRun" class="btn">Rank slips</button>
       </div>
       <p id="slipStatus" class="dim"></p>
@@ -155,6 +156,28 @@
           </thead>
           <tbody id="slipBody"></tbody>
         </table>
+      </div>
+      <div class="suggest-block" id="suggestBlock">
+        <h3>Suggested slips</h3>
+        <p class="slip-note">
+          Auto-picks best 2–6 leg Power/Flex combos from the <strong>currently filtered</strong> board
+          (top edges by EV). Skips junk matches (edge &gt; 15% or |Line Δ| &gt; 5) and rows without book probs.
+          Same independence / payout caveats as above.
+        </p>
+        <p id="suggestStatus" class="dim"></p>
+        <div class="table-wrap slip-table-wrap">
+          <table id="suggestTable">
+            <thead>
+              <tr>
+                <th>Slip</th>
+                <th>EV / $1</th>
+                <th>Picks</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="suggestBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

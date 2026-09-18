@@ -64,3 +64,78 @@ def test_rejects_bad_n():
         rank_slip_types([0.5])
     with pytest.raises(ValueError):
         rank_slip_types([0.5] * 7)
+
+
+def test_is_junk_edge_rules():
+    from prizepicks_oddsshark.slip_optimizer import is_junk_edge
+
+    assert is_junk_edge({"fair_prob": None, "edge_pct": 3}) is True
+    assert is_junk_edge({"fair_prob": 1.0, "edge_pct": 3}) is True
+    assert is_junk_edge({"fair_prob": 0.55, "edge_pct": 16, "line_diff": 1}) is True
+    assert is_junk_edge({"fair_prob": 0.55, "edge_pct": 5, "line_diff": 6}) is True
+    assert is_junk_edge({"fair_prob": 0.55, "edge_pct": 5, "line_diff": 1}) is False
+
+
+def test_suggest_slips_from_edges_ranks_and_filters_junk():
+    from prizepicks_oddsshark.slip_optimizer import suggest_slips_from_edges
+
+    edges = [
+        # junk: absurd edge
+        {
+            "platform": "prizepicks",
+            "event_id": "j1",
+            "player": "Junk Star",
+            "market": "player_points",
+            "side": "Over",
+            "pp_line": 20,
+            "tier": "standard",
+            "edge_pct": 49.0,
+            "line_diff": -6.0,
+            "fair_prob": 0.99,
+        },
+        # solid candidates
+        *[
+            {
+                "platform": "prizepicks",
+                "event_id": f"e{i}",
+                "player": f"Player {i}",
+                "market": "player_points",
+                "side": "Over",
+                "pp_line": 10 + i,
+                "tier": "standard",
+                "edge_pct": 10 - i * 0.5,
+                "line_diff": 1.0,
+                "fair_prob": 0.58 - i * 0.01,
+            }
+            for i in range(8)
+        ],
+        # underdog should be ignored when platform=prizepicks
+        {
+            "platform": "underdog",
+            "event_id": "u1",
+            "player": "UD Only",
+            "market": "player_points",
+            "side": "Over",
+            "pp_line": 5,
+            "tier": "standard",
+            "edge_pct": 14.0,
+            "line_diff": 0.5,
+            "fair_prob": 0.62,
+        },
+    ]
+    suggestions = suggest_slips_from_edges(
+        edges, platform="prizepicks", pool_size=12, top=5
+    )
+    assert suggestions
+    assert all(s["ev"] >= suggestions[-1]["ev"] for s in suggestions)
+    assert all(2 <= s["n"] <= 6 for s in suggestions)
+    names = {p["player"] for s in suggestions for p in s["picks"]}
+    assert "Junk Star" not in names
+    assert "UD Only" not in names
+    # diversity: no two same-size slips share n-1 legs
+    for i, a in enumerate(suggestions):
+        for b in suggestions[i + 1 :]:
+            if a["n"] != b["n"]:
+                continue
+            shared = len(set(a["keys"]) & set(b["keys"]))
+            assert shared < a["n"] - 1 or a["n"] < 2

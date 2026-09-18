@@ -27,6 +27,7 @@ from prizepicks_oddsshark.ranker import RankedEdge, parse_dfs_arg, rank_edges
 from prizepicks_oddsshark.slip_optimizer import (
     probs_from_board_edges,
     rank_slip_types,
+    suggest_slips_from_edges,
 )
 
 app = typer.Typer(
@@ -332,14 +333,67 @@ def slip_cmd(
         "--from-board",
         help="Board JSON (edges.json); uses top edges' fair_prob",
     ),
+    suggest_from_board: Optional[Path] = typer.Option(
+        None,
+        "--suggest-from-board",
+        help="Board JSON; auto-search best 2–6 pick Power/Flex combos by EV",
+    ),
+    platform: str = typer.Option(
+        "prizepicks",
+        "--platform",
+        help="When suggesting: prizepicks, underdog, or both",
+    ),
     top: int = typer.Option(
         4,
         "--top",
-        help="When using --from-board, how many top edges by edge%% (2–6)",
+        help="With --from-board: top edges (2–6). With --suggest-from-board: # suggestions",
+    ),
+    pool_size: int = typer.Option(
+        16,
+        "--pool-size",
+        help="Candidate pool size (top K by edge) for --suggest-from-board",
     ),
 ) -> None:
     """Rank Power/Flex slip types by EV given independent pick probabilities."""
     load_dotenv()
+
+    if suggest_from_board is not None:
+        path = suggest_from_board
+        if not path.exists():
+            console.print(f"[red]Board not found: {path}[/red]")
+            raise typer.Exit(2)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        edges = data.get("edges") if isinstance(data, dict) else data
+        if not isinstance(edges, list):
+            console.print("[red]Board JSON missing edges[][/red]")
+            raise typer.Exit(2)
+        suggestions = suggest_slips_from_edges(
+            edges,
+            platform=platform,
+            pool_size=pool_size,
+            top=max(1, min(top, 20)),
+        )
+        plat = platform.lower().strip() or "prizepicks"
+        console.print(
+            f"[bold]Suggest slips[/bold] platform={plat}  "
+            f"pool≤{pool_size}  showing {len(suggestions)}  "
+            f"(junk: edge>15% or |line Δ|>5; independence assumed)"
+        )
+        if not suggestions:
+            console.print("[yellow]No suggestions (need ≥2 non-junk edges with fair_prob).[/yellow]")
+            raise typer.Exit(0)
+        table = Table(show_header=True, header_style="bold")
+        for col in ("#", "Slip", "EV/$1", "Picks"):
+            table.add_column(col)
+        for i, s in enumerate(suggestions, start=1):
+            pick_txt = "; ".join(
+                f"{p.get('player')} {p.get('side')} {p.get('pp_line')} {p.get('market')}"
+                for p in s["picks"]
+            )
+            table.add_row(str(i), s["label"], f"{s['ev']:+.4f}", pick_txt)
+        console.print(table)
+        return
+
     values: list[float]
     if probs:
         try:
@@ -367,7 +421,7 @@ def slip_cmd(
             f"{', '.join(f'{p:.3f}' for p in values)}[/dim]"
         )
     else:
-        console.print("[red]Provide --probs or --from-board[/red]")
+        console.print("[red]Provide --probs, --from-board, or --suggest-from-board[/red]")
         raise typer.Exit(2)
 
     try:
